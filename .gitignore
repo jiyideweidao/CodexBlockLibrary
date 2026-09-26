@@ -1,0 +1,13 @@
+# 编译与打包输出
+dist/
+release/
+package/setup/bin/
+
+# 源码备份
+_backup/
+
+# 截图
+_shots/
+
+# AutoCAD 2024 托管程序集（有版权，不要提交；CI 编译时才需要）
+refs/acad2024/

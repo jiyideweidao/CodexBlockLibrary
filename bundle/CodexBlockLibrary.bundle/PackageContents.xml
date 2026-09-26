@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0"
+                    AppVersion="1.0.0"
+                    ProductCode="{E8A9306E-6126-430C-9290-D3B3D375B22F}"
+                    UpgradeCode="{88F2370B-2212-4F13-81C9-49F957FEE500}"
+                    Name="Codex 图块库"
+                    Description="扫描 dwg/dwt/dws/dxf 图纸中的图块，统计动态块数量，按分类与标签管理，并把图块（含动态参数）复制/插入到当前图纸。"
+                    Author="Codex"
+                    Icon="./Contents/Resources/icon.png"
+                    HelpFile="./Contents/Resources/readme.txt"
+                    ProductType="Application"
+                    SupportedLocales="zh-CN;en-US"
+                    LoadOnAutoCADStartup="True">
+  <CompanyDetails Name="Codex" Url="" Email="" />
+
+  <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.0" />
+
+  <Components Description="Codex 图块库主模块">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.0" />
+    <ComponentEntry AppName="CodexBlockLibrary"
+                    Version="1.0.0"
+                    ModuleName="./Contents/Windows/CodexBlockLib.UI.dll"
+                    AppType=".NET"
+                    LoadOnAutoCADStartup="True"
+                    LoadOnCommandInvocation="True"
+                    PerDocument="False">
+      <Commands GroupName="CODEXBLOCKLIB">
+        <Command Global="BLKLIB"       Local="BLKLIB" />
+        <Command Global="BLKSCAN"      Local="BLKSCAN" />
+        <Command Global="BLKCOUNT"     Local="BLKCOUNT" />
+        <Command Global="BLKSTATS"     Local="BLKSTATS" />
+        <Command Global="BLKIMPORT"    Local="BLKIMPORT" />
+        <Command Global="BLKSETTINGS"  Local="BLKSETTINGS" />
+        <Command Global="BLKSELFTEST"  Local="BLKSELFTEST" />
+        <Command Global="BLKCLOSE"     Local="BLKCLOSE" />
+        <Command Global="BLKCOLLAPSE"  Local="BLKCOLLAPSE" />
+        <Command Global="BLKUNINSTALL" Local="BLKUNINSTALL" />
+        <Command Global="BLKABOUT"     Local="BLKABOUT" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+</ApplicationPackage>

@@ -1,0 +1,13 @@
+# 行尾与二进制处理
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+*.ps1  text
+*.cs   text
+*.md   text
+*.xml  text
+
+*.dll  binary
+*.exe  binary
+*.zip  binary
+*.png  binary
+*.ico  binary
