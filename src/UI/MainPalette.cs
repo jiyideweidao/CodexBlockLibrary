@@ -38,7 +38,6 @@ namespace CodexBlockLib.UI
         private ToolStripProgressBar progressBar;
         private ToolStripTextBox searchBox;
         private ToolStripComboBox modeBox;
-        private ToolStripButton dynamicOnlyButton;
         private ToolStripButton closeButton;
         private ToolStripButton statusCloseButton;
         private ToolStripButton foldButton;
@@ -152,10 +151,6 @@ namespace CodexBlockLib.UI
             searchBox.Width = 150;
             searchBox.TextChanged += delegate { RefreshList(); };
             toolStrip.Items.Add(searchBox);
-            dynamicOnlyButton = new ToolStripButton("仅动态块");
-            dynamicOnlyButton.CheckOnClick = true;
-            dynamicOnlyButton.CheckedChanged += delegate { RefreshList(); };
-            toolStrip.Items.Add(dynamicOnlyButton);
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.Add(MakeButton("导出统计表", "export", delegate { ExportCsv(); }));
             toolStrip.Items.Add(MakeButton("设置", "settings", delegate { OpenSettings(); }));
@@ -526,6 +521,7 @@ namespace CodexBlockLib.UI
                 if (result == null || result.Blocks == null) continue;
                 foreach (BlockInfo info in result.Blocks)
                 {
+                    if (!info.IsDynamic) continue;   // 只收录动态块
                     rows.Add(new BlockRow { Result = result, Info = info });
                 }
             }
@@ -534,7 +530,7 @@ namespace CodexBlockLib.UI
             RefreshStats();
             UpdatePauseButton();
             SetStatus("已载入 " + results.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸 / "
-                + rows.Count.ToString(CultureInfo.InvariantCulture) + " 个块定义", 0, 0);
+                + rows.Count.ToString(CultureInfo.InvariantCulture) + " 个动态块定义", 0, 0);
         }
 
         private void RebuildTree()
@@ -546,23 +542,19 @@ namespace CodexBlockLib.UI
                 tree.Nodes.Clear();
 
                 var root = new TreeNode("块库");
-                var all = new TreeNode("全部块 (" + rows.Count.ToString(CultureInfo.InvariantCulture) + ")");
+                var all = new TreeNode("全部动态块 (" + rows.Count.ToString(CultureInfo.InvariantCulture) + ")");
                 all.Tag = new string[] { "all", string.Empty };
                 root.Nodes.Add(all);
 
                 var categories = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 var files = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 var tags = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                var kinds = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                int dynamicRows = 0;
 
                 foreach (BlockRow row in rows)
                 {
                     AddCount(categories, row.Info.CategoryOrFallback);
                     AddCount(files, row.Result.DisplayName);
-                    AddCount(kinds, row.Info.TypeText);
                     foreach (string tag in row.Info.Tags) AddCount(tags, tag);
-                    if (row.Info.IsDynamic) dynamicRows++;
                 }
 
                 var categoryNode = new TreeNode("分类 (" + categories.Count.ToString(CultureInfo.InvariantCulture) + ")");
@@ -589,21 +581,9 @@ namespace CodexBlockLib.UI
                     tagNode.Nodes.Add(node);
                 }
 
-                var kindNode = new TreeNode("类型");
-                var dynamicNode = new TreeNode("动态块 (" + dynamicRows.ToString(CultureInfo.InvariantCulture) + ")");
-                dynamicNode.Tag = new string[] { "dynamic", string.Empty };
-                kindNode.Nodes.Add(dynamicNode);
-                foreach (KeyValuePair<string, int> pair in kinds)
-                {
-                    var node = new TreeNode(pair.Key + " (" + pair.Value.ToString(CultureInfo.InvariantCulture) + ")");
-                    node.Tag = new string[] { "type", pair.Key };
-                    kindNode.Nodes.Add(node);
-                }
-
                 root.Nodes.Add(categoryNode);
                 root.Nodes.Add(fileNode);
                 root.Nodes.Add(tagNode);
-                root.Nodes.Add(kindNode);
                 tree.Nodes.Add(root);
                 root.Expand();
                 categoryNode.Expand();
@@ -666,11 +646,10 @@ namespace CodexBlockLib.UI
             shown.Clear();
 
             string search = searchBox == null ? string.Empty : (searchBox.Text ?? string.Empty).Trim();
-            bool dynamicOnly = dynamicOnlyButton != null && dynamicOnlyButton.Checked;
 
             foreach (BlockRow row in rows)
             {
-                if (dynamicOnly && !row.Info.IsDynamic) continue;
+                if (!row.Info.IsDynamic) continue;   // 只显示动态块
                 if (!MatchFilter(row)) continue;
                 if (search.Length > 0 && !MatchSearch(row, search)) continue;
                 shown.Add(row);
@@ -718,10 +697,6 @@ namespace CodexBlockLib.UI
                         if (string.Equals(tag, filterValue, StringComparison.OrdinalIgnoreCase)) return true;
                     }
                     return false;
-                case "type":
-                    return string.Equals(row.Info.TypeText, filterValue, StringComparison.OrdinalIgnoreCase);
-                case "dynamic":
-                    return row.Info.IsDynamic;
                 default:
                     return true;
             }
@@ -1562,12 +1537,9 @@ namespace CodexBlockLib.UI
                 CategoryRules.Apply(result.Blocks, LibraryStore.Settings);
                 ScanSession.AddOrReplace(result);
                 ReloadFromSession();
-                int blockCount = result.Blocks == null ? 0 : result.Blocks.Count;
-                Log.Write("已扫描当前图纸: " + label + " (图块 " + blockCount.ToString(CultureInfo.InvariantCulture)
-                    + " 个, 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
+                Log.Write("已扫描当前图纸: " + label + " (动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
                     + " 个, 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个)");
-                SetStatus("已扫描当前图纸 " + label + ": 图块 " + blockCount.ToString(CultureInfo.InvariantCulture)
-                    + " 个 / 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
+                SetStatus("已扫描当前图纸 " + label + ": 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
                     + " 个 / 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个（已加入块库）", 0, 0);
             }
             catch (Exception ex)
@@ -1591,27 +1563,21 @@ namespace CodexBlockLib.UI
             {
                 statsGrid.Rows.Clear();
                 statsGrid.Columns.Clear();
-                string[] headers = new string[] { "图纸", "格式", "动态块定义", "动态块实例", "静态块定义", "静态块实例", "外部参照", "单位", "布局", "模型图元", "用时(s)", "状态" };
+                string[] headers = new string[] { "图纸", "格式", "动态块定义", "动态块实例", "单位", "布局", "模型图元", "用时(s)", "状态" };
                 foreach (string header in headers) statsGrid.Columns.Add(header, header);
 
-                int dynamicDefinitions = 0, dynamicInstances = 0, staticDefinitions = 0, staticInstances = 0, xrefs = 0;
+                int dynamicDefinitions = 0, dynamicInstances = 0;
                 foreach (FileScanResult result in ScanSession.Results)
                 {
                     if (result == null) continue;
                     dynamicDefinitions += result.DynamicDefinitionCount;
                     dynamicInstances += result.DynamicInstanceCount;
-                    staticDefinitions += result.StaticDefinitionCount;
-                    staticInstances += result.StaticInstanceCount;
-                    xrefs += result.XrefCount;
                     statsGrid.Rows.Add(new object[]
                     {
                         result.DisplayName,
                         result.Format,
                         result.DynamicDefinitionCount,
                         result.DynamicInstanceCount,
-                        result.StaticDefinitionCount,
-                        result.StaticInstanceCount,
-                        result.XrefCount,
                         result.InsUnitsName,
                         result.LayoutCount,
                         result.ModelEntityCount,
@@ -1622,7 +1588,7 @@ namespace CodexBlockLib.UI
                 statsGrid.Rows.Add(new object[]
                 {
                     "合计 (" + ScanSession.Count.ToString(CultureInfo.InvariantCulture) + " 张)",
-                    string.Empty, dynamicDefinitions, dynamicInstances, staticDefinitions, staticInstances, xrefs,
+                    string.Empty, dynamicDefinitions, dynamicInstances,
                     string.Empty, string.Empty, string.Empty, string.Empty, string.Empty
                 });
             }

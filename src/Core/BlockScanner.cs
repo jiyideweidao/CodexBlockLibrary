@@ -63,7 +63,7 @@ namespace CodexBlockLib.Core
 
             result.ScanSeconds = watch.Elapsed.TotalSeconds;
             result.ScanTime = DateTime.Now;
-            Log.Write("已扫描 " + result.Label + ": 图块 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个, 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
+            Log.Write("已扫描 " + result.Label + ": 动态块定义 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个, 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
             return result;
         }
 
@@ -96,7 +96,7 @@ namespace CodexBlockLib.Core
             }
             result.ScanSeconds = watch.Elapsed.TotalSeconds;
             result.ScanTime = DateTime.Now;
-            Log.Write("已扫描 " + result.Label + ": 图块 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个, 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
+            Log.Write("已扫描 " + result.Label + ": 动态块定义 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个, 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
             return result;
         }
 
@@ -129,6 +129,8 @@ namespace CodexBlockLib.Core
 
                 // 2) 枚举块表，建立 定义 -> 统计对象 的映射
                 var infoByKey = new Dictionary<ObjectId, BlockInfo>();
+                // 只收录动态块：静态块 / 外部参照 / 匿名块既不进列表也不统计实例
+                var skippedIds = new HashSet<ObjectId>();
                 foreach (ObjectId id in blockTable)
                 {
                     if (id.IsErased) continue;
@@ -174,6 +176,11 @@ namespace CodexBlockLib.Core
                     try { info.HasAttributes = record.HasAttributeDefinitions; } catch { }
                     info.IsDynamic = !isXref && LooksDynamicDefinition(record);
                     info.Kind = isXref ? BlockKind.Xref : (info.IsDynamic ? BlockKind.Dynamic : BlockKind.Static);
+                    if (options.DynamicOnly && !info.IsDynamic)
+                    {
+                        skippedIds.Add(id);
+                        continue;
+                    }
 
                     CountDefinitionContent(record, tr, info);
                     result.Blocks.Add(info);
@@ -240,8 +247,8 @@ namespace CodexBlockLib.Core
                         BlockInfo info;
                         if (!infoByKey.TryGetValue(definitionId, out info))
                         {
-                            // 外部参照内部的块或未在块表中登记的引用
-                            result.UnknownRefs++;
+                            // 非动态块在定义阶段已跳过，不计入未知参照
+                            if (!skippedIds.Contains(definitionId)) result.UnknownRefs++;
                             continue;
                         }
 

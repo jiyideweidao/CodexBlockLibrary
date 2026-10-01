@@ -27,24 +27,18 @@ namespace CodexBlockLib.Core
             sb.AppendLine("Codex 图块库统计,生成时间," + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
             sb.AppendLine();
             sb.AppendLine("汇总");
-            sb.AppendLine("来源,格式,动态块定义,动态块实例,静态块定义,静态块实例,外部参照,单位,布局数,图元数(模型),扫描用时(秒),状态");
+            sb.AppendLine("来源,格式,动态块定义,动态块实例,单位,布局数,图元数(模型),扫描用时(秒),状态");
 
             int files = results.Count;
-            int dynDef = 0, dynIns = 0, staDef = 0, staIns = 0, xrefs = 0;
+            int dynDef = 0, dynIns = 0;
             foreach (FileScanResult result in results)
             {
                 if (result == null) continue;
                 dynDef += result.DynamicDefinitionCount;
                 dynIns += result.DynamicInstanceCount;
-                staDef += result.StaticDefinitionCount;
-                staIns += result.StaticInstanceCount;
-                xrefs += result.XrefCount;
                 sb.AppendLine(Csv(result.DisplayName) + "," + Csv(result.Format) + ","
                     + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture) + ","
                     + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + ","
-                    + result.StaticDefinitionCount.ToString(CultureInfo.InvariantCulture) + ","
-                    + result.StaticInstanceCount.ToString(CultureInfo.InvariantCulture) + ","
-                    + result.XrefCount.ToString(CultureInfo.InvariantCulture) + ","
                     + Csv(result.InsUnitsName) + ","
                     + result.LayoutCount.ToString(CultureInfo.InvariantCulture) + ","
                     + result.ModelEntityCount.ToString(CultureInfo.InvariantCulture) + ","
@@ -53,12 +47,11 @@ namespace CodexBlockLib.Core
             }
             sb.AppendLine(Csv("合计(" + files.ToString(CultureInfo.InvariantCulture) + " 张图纸)") + ",," 
                 + dynDef.ToString(CultureInfo.InvariantCulture) + "," + dynIns.ToString(CultureInfo.InvariantCulture) + ","
-                + staDef.ToString(CultureInfo.InvariantCulture) + "," + staIns.ToString(CultureInfo.InvariantCulture) + ","
-                + xrefs.ToString(CultureInfo.InvariantCulture) + ",,,,,,");
+                + ",,,,,,,");
             sb.AppendLine();
 
             sb.AppendLine("块明细");
-            sb.AppendLine("序号,来源图纸,分类,块名,类型,实例合计,模型空间,图纸空间,嵌套引用,动态变体数,可见性状态,参数,主要图层,标签");
+            sb.AppendLine("序号,来源图纸,分类,块名,实例合计,模型空间,图纸空间,嵌套引用,动态变体数,可见性状态,参数,主要图层,标签");
             int index = 0;
             foreach (FileScanResult result in results)
             {
@@ -72,7 +65,6 @@ namespace CodexBlockLib.Core
                         Csv(result.DisplayName),
                         Csv(info.CategoryOrFallback),
                         Csv(info.Name),
-                        Csv(info.TypeText),
                         info.InstanceCount.ToString(CultureInfo.InvariantCulture),
                         info.ModelCount.ToString(CultureInfo.InvariantCulture),
                         info.PaperCount.ToString(CultureInfo.InvariantCulture),

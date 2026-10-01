@@ -66,7 +66,6 @@ namespace CodexBlockLib.UI
         private NumericUpDown maxProps;
         private CheckBox autoScale;
         private CheckBox countNested;
-        private CheckBox includeXrefs;
         private CheckBox ribbonEnabled;
         private CheckBox menuBarEnabled;
         private CheckBox showMenuBar;
@@ -114,13 +113,11 @@ namespace CodexBlockLib.UI
             scanGroup.Size = new Size(736, 110);
             autoScale = MakeCheck("按图纸单位自动换算插入比例", 16, 24);
             countNested = MakeCheck("统计嵌套在其它块内的参照", 16, 50);
-            includeXrefs = MakeCheck("列出外部参照", 16, 76);
             thumbSize = MakeNumeric("缩略图尺寸(px)", 380, 22, 32, 256, 16);
             maxThumbs = MakeNumeric("每张图纸缩略图上限", 380, 50, 0, 5000, 50);
             maxProps = MakeNumeric("动态块参数读取上限", 380, 78, 0, 5000, 10);
             scanGroup.Controls.Add(autoScale);
             scanGroup.Controls.Add(countNested);
-            scanGroup.Controls.Add(includeXrefs);
             scanGroup.Controls.Add(thumbSize);
             scanGroup.Controls.Add((Control)thumbSize.Tag);
             scanGroup.Controls.Add(maxThumbs);
@@ -248,7 +245,6 @@ namespace CodexBlockLib.UI
             modeBox.SelectedIndex = index;
             autoScale.Checked = settings.AutoScaleByUnits;
             countNested.Checked = settings.CountNested;
-            includeXrefs.Checked = settings.IncludeXrefs;
             ribbonEnabled.Checked = settings.RibbonEnabled;
             menuBarEnabled.Checked = settings.MenuBarEnabled;
             addinsEnabled.Checked = settings.AddToAddinsTab;
@@ -297,7 +293,6 @@ namespace CodexBlockLib.UI
                 }
                 settings.AutoScaleByUnits = autoScale.Checked;
                 settings.CountNested = countNested.Checked;
-                settings.IncludeXrefs = includeXrefs.Checked;
                 settings.RibbonEnabled = ribbonEnabled.Checked;
                 settings.MenuBarEnabled = menuBarEnabled.Checked;
                 settings.AddToAddinsTab = addinsEnabled.Checked;

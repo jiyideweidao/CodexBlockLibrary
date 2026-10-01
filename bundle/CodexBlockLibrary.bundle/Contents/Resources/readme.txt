@@ -1,4 +1,4 @@
-﻿Codex 图块库 (CodexBlockLibrary) v1.0.5
+﻿Codex 图块库 (CodexBlockLibrary) v1.0.6
 =========================================
 AutoCAD 2024 插件：扫描其它 dwg / dwt / dws / dxf 图纸中的图块，
 统计动态块数量，按分类与标签管理，并把图块复制/插入到当前图纸。

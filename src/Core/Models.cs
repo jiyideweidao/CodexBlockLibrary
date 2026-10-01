@@ -196,7 +196,7 @@ namespace CodexBlockLib.Core
 
     public sealed class ScanOptions
     {
-        public bool IncludeXrefs = true;
+        public bool DynamicOnly = true;   // 只收录并统计动态块，其它块不列表也不统计
         public bool CountNested = true;
         public bool ReadProperties = true;
         public int MaxPropertyReadsPerBlock = 60;
@@ -321,9 +321,6 @@ namespace CodexBlockLib.Core
             return DisplayName
                 + " | 动态块定义 " + DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
                 + " 个 / 实例 " + DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个"
-                + " | 静态块 " + StaticDefinitionCount.ToString(CultureInfo.InvariantCulture)
-                + " / 实例 " + StaticInstanceCount.ToString(CultureInfo.InvariantCulture)
-                + " | 外部参照 " + XrefCount.ToString(CultureInfo.InvariantCulture)
                 + " | 单位 " + InsUnitsName
                 + " | 耗时 " + ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + "s";
         }
@@ -404,7 +401,10 @@ namespace CodexBlockLib.Core
                 foreach (FileScanResult r in Items)
                 {
                     if (r == null || !r.Ok || r.Blocks == null) continue;
-                    list.AddRange(r.Blocks);
+                    foreach (BlockInfo info in r.Blocks)
+                    {
+                        if (info != null && info.IsDynamic) list.Add(info);
+                    }
                 }
             }
             return list;

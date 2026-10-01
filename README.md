@@ -3,7 +3,7 @@
 扫描其它 `dwg / dwt / dws / dxf` 图纸中的图块，统计**动态块**数量，按**分类 / 标签**管理，
 并把任意图块**复制 / 插入到当前正在绘制的图纸**。
 
-- 版本：1.0.5
+- 版本：1.0.6
 - 目标平台：AutoCAD 2024（R24.3，简体中文）+ .NET Framework 4.8
 - 已安装位置（用户级，无需管理员）：
   `%APPDATA%\Autodesk\ApplicationPlugins\CodexBlockLibrary.bundle`
@@ -102,7 +102,7 @@
 | `BLKSCAN` | 选择文件(F) 或文件夹(D) 扫描，结果加入块库 |
 | `BLKRESCAN` | 只重新扫描**列表中选中的图纸**（等同面板工具栏「重新扫描选中」；插件不做任何全局扫描） |
 | `BLKPAUSE` | 暂停 / 继续正在进行的扫描（面板工具栏「暂停扫描」；功能区与经典菜单也有入口） |
-| `BLKCOUNT` | 扫描**当前打开的这张图纸**并加入块库（动态块/静态块/外部参照统计，可选导出 CSV） |
+| `BLKCOUNT` | 扫描**当前打开的这张图纸**并加入块库（只统计动态块，可选导出 CSV） |
 | `BLKSTATS` | 导出块库统计表 CSV（`%USERPROFILE%\Documents\CodexBlockLib\`） |
 | `BLKIMPORT` | 把来源图纸中的块定义导入当前图纸（A=全部 / D=仅动态块） |
 | `BLKSETTINGS` | 设置：分类方式、缩略图、界面挂载、自定义分类规则 |
@@ -121,7 +121,7 @@
 
 ## 五、分类与标签
 
-- 分类方式：按名称前缀（默认）/ 按来源图纸 / 按所在文件夹 / 按图层 / 按类型（动态/静态/外部参照）/
+- 分类方式：按名称前缀（默认）/ 按来源图纸 / 按所在文件夹 / 按图层 /
   按可见性状态 / 按自定义规则 / 不分类。
 - 自定义规则：设置对话框内可配置“块名包含（或正则）→ 归入分类”，从上到下匹配。
 - 标签：自动生成“类型 + 来源图纸 + 文件夹 + 前 3 个图层 + 可见性状态”，可在面板中手工修改。
@@ -142,7 +142,7 @@
 CodexBlockLibrary\
 ├─ src\Core\                核心库（不依赖界面）
 │   ├─ DrawingReader.cs     打开 dwg/dwt/dws/dxf 的旁路数据库
-│   ├─ BlockScanner.cs      块统计引擎（动态/静态/外部参照、实例数、变体、缩略图）
+│   ├─ BlockScanner.cs      块统计引擎（只统计动态块、实例数、变体、缩略图）
 │   ├─ DynamicBlockDetector.cs  动态块识别（BlockTableRecord.IsDynamicBlock + RXClass 参数/动作类扫描）
 │   ├─ GeometryCapture.cs   从块定义提取线框，用于生成缩略图
 │   ├─ ThumbnailRenderer.cs GDI+ 缩略图渲染与磁盘缓存
@@ -225,14 +225,14 @@ AutoCAD 命令行执行 `BLKSELFTEST`：
 
 | 文件 | 大小 | 用途 |
 | --- | --- | --- |
-| `CodexBlockLibrary-1.0.5-Setup.exe` | ~106 KB | 单文件安装程序，内嵌整个插件包，双击即可用 |
-| `CodexBlockLibrary-1.0.5.zip` | ~184 KB | 便携包：插件包 + 安装/卸载脚本 + 文档（含同一份 Setup.exe） |
+| `CodexBlockLibrary-1.0.6-Setup.exe` | ~106 KB | 单文件安装程序，内嵌整个插件包，双击即可用 |
+| `CodexBlockLibrary-1.0.6.zip` | ~184 KB | 便携包：插件包 + 安装/卸载脚本 + 文档（含同一份 Setup.exe） |
 | `SHA256SUMS.txt` | — | 上面两个文件的 SHA256 校验值 |
 
 别人拿到的分发包里包含：
 
 ```
-CodexBlockLibrary-1.0.5\
+CodexBlockLibrary-1.0.6\
 ├─ Setup.exe               单文件安装程序（推荐）
 ├─ install.cmd             双击安装（当前用户，不需要管理员）
 ├─ install-allusers.cmd    双击安装（所有用户，会弹 UAC）
@@ -286,7 +286,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\uninstall.ps1 -KeepConfig
 ### 校验下载文件
 
 ```powershell
-Get-FileHash .\CodexBlockLibrary-1.0.5-Setup.exe -Algorithm SHA256
+Get-FileHash .\CodexBlockLibrary-1.0.6-Setup.exe -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 
@@ -317,10 +317,10 @@ $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse 
 & $signtool.FullName sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
     /f mycert.pfx /p <证书密码> `
     /d "Codex 图块库 AutoCAD 插件" `
-    .\CodexBlockLibrary-1.0.5-Setup.exe
+    .\CodexBlockLibrary-1.0.6-Setup.exe
 
 # 验证
-Get-AuthenticodeSignature .\CodexBlockLibrary-1.0.5-Setup.exe | Format-List Status, SignerCertificate
+Get-AuthenticodeSignature .\CodexBlockLibrary-1.0.6-Setup.exe | Format-List Status, SignerCertificate
 ```
 
 `Status` 显示 `Valid` 即成功。注意：**签名会改变文件内容，签完必须重算 `SHA256SUMS.txt`**，
@@ -341,7 +341,7 @@ Export-PfxCertificate  -Cert $cert -FilePath mycert.pfx -Password $pwd
 Export-Certificate     -Cert $cert -FilePath mycert.cer
 
 # 3) 对 Setup.exe 签名
-& $signtool.FullName sign /fd SHA256 /f mycert.pfx /p '你的密码' .\CodexBlockLibrary-1.0.5-Setup.exe
+& $signtool.FullName sign /fd SHA256 /f mycert.pfx /p '你的密码' .\CodexBlockLibrary-1.0.6-Setup.exe
 ```
 
 自签名证书默认**不被信任**，用户要先把它装进“受信任的根证书颁发机构”才不会再报警：
@@ -368,7 +368,7 @@ Import-Certificate -FilePath .\mycert.cer -CertStoreLocation Cert:\LocalMachine\
 
 **触发方式**
 
-- 打 tag 推送即自动发布：`git tag v1.0.5 && git push origin v1.0.5`
+- 打 tag 推送即自动发布：`git tag v1.0.6 && git push origin v1.0.6`
 - 或在 Actions 页面手动 `Run workflow`，可填版本号、可勾选“跳过编译”
 
 **流程**
@@ -400,21 +400,28 @@ Import-Certificate -FilePath .\mycert.cer -CertStoreLocation Cert:\LocalMachine\
 cd "...\CodexBlockLibrary"
 git init
 git add .
-git commit -m "Codex 图块库 1.0.5"
+git commit -m "Codex 图块库 1.0.6"
 git remote add origin https://github.com/<你的账号>/CodexBlockLibrary.git
 git push -u origin main
-git tag v1.0.5
-git push origin v1.0.5        # 打完 tag 就会自动出一个 Release
+git tag v1.0.6
+git push origin v1.0.6        # 打完 tag 就会自动出一个 Release
 ```
 
 **本地复现 CI 的打包（不编译）**
 
 ```powershell
-& .\package\make-package.ps1 -SkipBuild -Version 1.0.5
+& .\package\make-package.ps1 -SkipBuild -Version 1.0.6
 ```
 
 
 ## 十三、更新日志
+
+**1.0.6**
+
+- 插件**只处理动态块**：扫描时非动态块（静态块 / 外部参照 / 匿名块）既不进列表也不统计，
+  统计表、导出 CSV、命令行摘要同样只报动态块；
+- 列表恒为动态块，因此去掉了已无意义的工具栏「仅动态块」开关与左侧「类型」筛选节点；
+- 设置里取消「列出外部参照」（外部参照不再参与统计）。
 
 **1.0.5**
 

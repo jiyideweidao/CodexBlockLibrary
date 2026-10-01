@@ -33,7 +33,6 @@ namespace CodexBlockLib.Core
         public bool AutoScaleByUnits = true;
         public bool KeepSourceRotation;
         public bool CountNested = true;
-        public bool IncludeXrefs = true;
         public int MaxPropertyReadsPerBlock = 60;
         public bool RibbonEnabled = true;
         public bool MenuBarEnabled = true;
@@ -48,7 +47,7 @@ namespace CodexBlockLib.Core
         {
             var options = new ScanOptions();
             options.CountNested = CountNested;
-            options.IncludeXrefs = IncludeXrefs;
+            options.DynamicOnly = true;
             options.MaxPropertyReadsPerBlock = MaxPropertyReadsPerBlock > 0 ? MaxPropertyReadsPerBlock : 60;
             options.BuildThumbnails = true;
             options.MaxThumbnailsPerFile = MaxThumbnailsPerFile > 0 ? MaxThumbnailsPerFile : 400;

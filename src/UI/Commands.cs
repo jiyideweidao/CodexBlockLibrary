@@ -200,19 +200,18 @@ namespace CodexBlockLib.UI
                     }
                 }
 
-                int blockTotal = 0;
                 int dynamicTotal = 0;
                 int instanceTotal = 0;
                 foreach (FileScanResult scanned in results)
                 {
                     foreach (BlockInfo info in scanned.Blocks)
                     {
-                        blockTotal++;
-                        if (info.IsDynamic) dynamicTotal++;
+                        if (!info.IsDynamic) continue;
+                        dynamicTotal++;
                         instanceTotal += info.InstanceCount;
                     }
                 }
-                Log.Write("扫描任务完成: 图纸 " + files.Count.ToString(CultureInfo.InvariantCulture) + " 张, 块定义 " + blockTotal.ToString(CultureInfo.InvariantCulture) + " 个 (动态块 " + dynamicTotal.ToString(CultureInfo.InvariantCulture) + " 个), 参照 " + instanceTotal.ToString(CultureInfo.InvariantCulture) + " 处");
+                Log.Write("扫描任务完成: 图纸 " + files.Count.ToString(CultureInfo.InvariantCulture) + " 张, 动态块定义 " + dynamicTotal.ToString(CultureInfo.InvariantCulture) + " 个, 参照 " + instanceTotal.ToString(CultureInfo.InvariantCulture) + " 处");
 
                 Write(ReportWriter.SummaryText(results, 15));
                 Write("提示: 输入 BLKLIB 打开块库面板查看/插入；输入 BLKSTATS 导出统计表。");

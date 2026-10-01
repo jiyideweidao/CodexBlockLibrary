@@ -1,4 +1,4 @@
-﻿# Codex 图块库（CodexBlockLibrary）v1.0.5
+﻿# Codex 图块库（CodexBlockLibrary）v1.0.6
 
 AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，按**分类 / 标签**管理，
 并把任意图块（含动态参数）**复制 / 插入到当前正在绘制的图纸**中。
@@ -30,7 +30,7 @@ AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，�
 
 **方式二：脚本安装（便携包）**
 
-1. 把 `CodexBlockLibrary-1.0.5.zip` **完整解压**到任意目录（不要在压缩包里直接双击）。
+1. 把 `CodexBlockLibrary-1.0.6.zip` **完整解压**到任意目录（不要在压缩包里直接双击）。
 2. 双击 **`install.cmd`**（装给当前用户，不弹 UAC）；
    要让本机所有用户都能用，改双击 **`install-allusers.cmd`**（会弹 UAC）。
 3. 装完同样重启 AutoCAD。
@@ -82,7 +82,7 @@ AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，�
 | `BLKSCAN` | 扫描文件或整个文件夹，结果加入块库 |
 | `BLKRESCAN` | 只重新扫描列表中选中的图纸（插件不做全局扫描） |
 | `BLKPAUSE` | 暂停 / 继续正在进行的扫描 |
-| `BLKCOUNT` | 扫描**当前打开的这张图纸**并加入块库（动态块 / 静态块 / 外部参照统计，可导出 CSV） |
+| `BLKCOUNT` | 扫描**当前打开的这张图纸**并加入块库（只统计动态块，可导出 CSV） |
 | `BLKSTATS` | 导出块库统计表 CSV |
 | `BLKIMPORT` | 把来源图纸中的块定义导入当前图纸 |
 | `BLKSETTINGS` | 设置：分类方式、缩略图、界面挂载、自定义分类规则 |
@@ -146,7 +146,7 @@ A：`PackageContents.xml` 声明的最低版本是 **R24.0（AutoCAD 2024）**�
 ## 六、目录结构
 
 ```
-CodexBlockLibrary-1.0.5\
+CodexBlockLibrary-1.0.6\
 ├─ Setup.exe              一键安装 / 卸载（推荐，双击运行）
 ├─ install.cmd            双击安装（当前用户）
 ├─ install-allusers.cmd   双击安装（所有用户，需 UAC）
