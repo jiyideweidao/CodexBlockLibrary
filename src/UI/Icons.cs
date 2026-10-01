@@ -98,6 +98,13 @@ namespace CodexBlockLib.UI
                             g.DrawLine(accentPen, 10, 16, 16, 9);
                             g.DrawLine(accentPen, 16, 9, 22, 16);
                             break;
+                        case "pause":
+                            g.FillRectangle(darkBrush, 9, 6, 5, 20);
+                            g.FillRectangle(accentBrush, 18, 6, 5, 20);
+                            break;
+                        case "play":
+                            g.FillPolygon(accentBrush, new Point[] { new Point(9, 6), new Point(9, 26), new Point(25, 16) });
+                            break;
                         case "uninstall":
                             g.DrawLine(darkPen, 6, 9, 26, 9);
                             g.DrawLine(darkPen, 13, 5, 19, 5);

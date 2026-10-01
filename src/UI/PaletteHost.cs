@@ -49,6 +49,7 @@ namespace CodexBlockLib.UI
                 try { paletteSet.DockEnabled = DockSides.Left | DockSides.Right; } catch { }
                 paletteSet.Add("图块库", control);
                 paletteSet.KeepFocus = false;
+                try { paletteSet.StateChanged += OnStateChanged; } catch { }
                 Log.Write("面板已创建: Codex 图块库 (初始尺寸 " + ExpandedWidth + "x" + ExpandedHeight + ")");
             }
             catch (System.Exception ex)
@@ -68,6 +69,7 @@ namespace CodexBlockLib.UI
             {
                 paletteSet.Visible = true;
                 paletteSet.Activate(0);
+                SyncPumpState();
                 if (!stateApplied)
                 {
                     stateApplied = true;
@@ -89,6 +91,7 @@ namespace CodexBlockLib.UI
             try
             {
                 paletteSet.Visible = false;
+                SyncPumpState();
                 Log.Write("面板已关闭");
             }
             catch (System.Exception ex)
@@ -105,6 +108,7 @@ namespace CodexBlockLib.UI
             {
                 paletteSet.Visible = !paletteSet.Visible;
                 if (paletteSet.Visible) paletteSet.Activate(0);
+                SyncPumpState();
             }
             catch (System.Exception ex)
             {
@@ -162,10 +166,31 @@ namespace CodexBlockLib.UI
             catch (System.Exception ex) { Log.Error("刷新面板失败", ex); }
         }
 
+        /// <summary>
+        /// 面板显示 / 隐藏（含标题栏 × 按钮、折叠、停靠）时同步主线程队列：
+        /// 面板不可见就暂停队列，避免关掉面板后仍在主线程逐张打开图纸造成卡顿。
+        /// </summary>
+        private static void OnStateChanged(object sender, PaletteSetStateEventArgs e)
+        {
+            SyncPumpState();
+        }
+
+        private static void SyncPumpState()
+        {
+            bool visible = false;
+            try { visible = paletteSet != null && paletteSet.Visible; }
+            catch { visible = false; }
+            // 只登记“面板隐藏”这一个原因：用户手动暂停扫描的原因由面板自己管理，
+            // 面板重新显示时不应该把用户已经暂停的扫描悄悄跑起来。
+            MainThreadPump.SetPaused(MainThreadPump.PauseReasonHidden, !visible);
+        }
+
         public static void DisposePalette()
         {
             try
             {
+                MainThreadPump.Clear();
+                MainThreadPump.SetPaused(MainThreadPump.PauseReasonHidden, true);
                 if (control != null) { control.Dispose(); control = null; }
                 if (paletteSet != null) { paletteSet.Dispose(); paletteSet = null; }
             }

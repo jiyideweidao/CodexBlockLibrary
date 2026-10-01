@@ -21,6 +21,8 @@ namespace CodexBlockLib.UI
         {
             try
             {
+                // 启动时若因 COM 忙导致经典菜单栏没挂上，这里立即补挂一次（幂等）。
+                RibbonMenu.EnsureMenuBar();
                 PaletteHost.Show();
                 MainPalette palette = PaletteHost.Control;
                 if (palette != null) palette.ReloadFromSession();
@@ -29,6 +31,43 @@ namespace CodexBlockLib.UI
             {
                 Log.Error("BLKLIB 失败", ex);
                 Write("块库面板打开失败: " + ex.Message);
+            }
+        }
+
+        /// <summary>只重新扫描面板列表里选中的图纸（面板工具栏「重新扫描选中」的命令行版本）。</summary>
+        [CommandMethod("BLKRESCAN", CommandFlags.Modal)]
+        public static void RescanRegistered()
+        {
+            try
+            {
+                MainPalette palette = PaletteHost.EnsureCreated();
+                if (palette == null) { Write("当前环境没有图形界面，无法扫描。"); return; }
+                PaletteHost.Show();
+                int count = palette.RescanAllSources();
+                if (count == 0) Write("请先在面板列表里选中要重新扫描的图纸；要扫描新图纸请点面板里的「添加图纸」。");
+                else Write("开始重新扫描选中的 " + count.ToString(CultureInfo.InvariantCulture) + " 张图纸，进度见面板状态栏。");
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error("BLKRESCAN 失败", ex);
+                Write("扫描失败: " + ex.Message);
+            }
+        }
+
+        /// <summary>暂停 / 继续正在进行的图纸扫描（面板工具栏“暂停扫描”的命令行版本）。</summary>
+        [CommandMethod("BLKPAUSE", CommandFlags.Modal)]
+        public static void ToggleScanPause()
+        {
+            try
+            {
+                MainPalette palette = PaletteHost.Control;
+                if (palette == null) { Write("块库面板尚未创建，请先执行 BLKLIB 打开面板。"); return; }
+                palette.ToggleScanPause();
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error("BLKPAUSE 失败", ex);
+                Write("暂停/继续扫描失败: " + ex.Message);
             }
         }
 
@@ -185,6 +224,7 @@ namespace CodexBlockLib.UI
             }
         }
 
+        /// <summary>扫描“当前打开的图纸”，把它的图块加入块库，并打印动态块统计（可选导出 CSV）。</summary>
         [CommandMethod("BLKCOUNT", CommandFlags.Modal)]
         public static void CountDynamicBlocks()
         {
@@ -213,7 +253,7 @@ namespace CodexBlockLib.UI
             catch (System.Exception ex)
             {
                 Log.Error("BLKCOUNT 失败", ex);
-                Write("统计失败: " + ex.Message);
+                Write("扫描当前图纸失败: " + ex.Message);
             }
         }
 
@@ -228,7 +268,7 @@ namespace CodexBlockLib.UI
                 List<FileScanResult> results = ScanSession.Results;
                 if (results.Count == 0)
                 {
-                    Write("尚未扫描任何图纸，先统计当前图纸...");
+                    Write("尚未扫描任何图纸，先扫描当前图纸...");
                     string label = string.IsNullOrEmpty(doc.Name) ? "当前图纸(未保存)" : Path.GetFileName(doc.Name);
                     FileScanResult current = BlockScanner.ScanDatabase(doc.Database, doc.Name ?? label, LibraryStore.Settings.ToScanOptions(), null);
                     current.Label = label;
@@ -360,7 +400,7 @@ namespace CodexBlockLib.UI
         {
             Write("\n=== " + PluginInfo.DisplayName + " v" + PluginInfo.Version + " ===");
             Write("功能: 扫描 dwg / dwt / dws / dxf 图纸中的图块，统计动态块数量，按分类和标签管理，并复制到当前图纸。");
-            Write("命令: BLKLIB 块库面板 | BLKSCAN 扫描图纸 | BLKCOUNT 统计当前图纸 | BLKSTATS 导出CSV | BLKIMPORT 导入块定义");
+            Write("命令: BLKLIB 块库面板 | BLKSCAN 扫描图纸 | BLKCOUNT 扫描当前图纸 | BLKSTATS 导出CSV | BLKIMPORT 导入块定义");
             Write("      BLKSETTINGS 设置 | BLKSELFTEST 自检 | BLKABOUT 关于");
             Write("配置目录: " + AppPaths.Root);
             Write("日志文件: " + AppPaths.LogFile);

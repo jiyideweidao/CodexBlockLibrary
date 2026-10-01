@@ -105,6 +105,40 @@ namespace CodexBlockLib.Core
     }
 
     /// <summary>图形单位换算：源图纸与当前图纸单位不一致时自动换算插入比例。</summary>
+    /// <summary>
+    /// AutoCAD 的 Database / Document API 只能在主线程（文档线程）上使用。
+    /// 在后台线程调用 Database.ReadDwgFile 时，AutoCAD 原生代码内部会查询调色板主题
+    /// （AdUiMgdPaletteTheme.IsCurrentPaletteThemeDark -> PaletteTheme.IsDark -> Dispatcher.VerifyAccess），
+    /// 抛出的托管异常会穿过没有托管处理句柄的原生栈帧，最终表现为
+    /// “致命错误: Unhandled e0434352h Exception”，整个 AutoCAD 进程被终止。
+    /// 插件初始化时在主线程调用 Capture()，之后所有图纸读写入口先做一次校验。
+    /// </summary>
+    public static class MainThreadGuard
+    {
+        private static int mainThreadId;
+
+        public static void Capture()
+        {
+            mainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+        }
+
+        public static bool IsMainThread
+        {
+            get
+            {
+                int expected = mainThreadId;
+                if (expected == 0) return true;
+                return System.Threading.Thread.CurrentThread.ManagedThreadId == expected;
+            }
+        }
+
+        public static string Describe()
+        {
+            return "main=" + mainThreadId.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ", now=" + System.Threading.Thread.CurrentThread.ManagedThreadId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
     public static class UnitConvert
     {
         public static double MetersPerUnit(UnitsValue unit)

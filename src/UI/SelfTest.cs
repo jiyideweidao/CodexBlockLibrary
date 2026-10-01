@@ -387,7 +387,7 @@ namespace CodexBlockLib.UI
 
         private static void Background(StringBuilder sb, List<FileScanResult> results)
         {
-            sb.AppendLine("== 后台线程扫描测试 ==");
+            sb.AppendLine("== 图纸扫描测试（AutoCAD 数据库只能在主线程访问）==");
             string file = null;
             foreach (FileScanResult result in results)
             {
@@ -407,21 +407,17 @@ namespace CodexBlockLib.UI
             {
                 ScanOptions options = LibraryStore.Settings.ToScanOptions();
                 options.BuildThumbnails = false;
-                Task<string> task = Task.Factory.StartNew(delegate
-                {
-                    FileScanResult result = BlockScanner.ScanFile(target, options, null);
-                    if (!result.Ok) return "失败: " + result.Error;
-                    return "成功: 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
-                        + " 个, 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture)
-                        + " 个, 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + "s";
-                });
-                if (!task.Wait(TimeSpan.FromSeconds(90))) sb.AppendLine("超时(90 秒): " + Path.GetFileName(target));
-                else sb.AppendLine("后台扫描 " + Path.GetFileName(target) + " => " + task.Result);
+                FileScanResult result = BlockScanner.ScanFile(target, options, null);
+                if (!result.Ok) sb.AppendLine("失败: " + result.Error);
+                else sb.AppendLine("扫描 " + Path.GetFileName(target) + " => 成功: 动态块定义 "
+                    + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture) + " 个, 实例 "
+                    + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个, 用时 "
+                    + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + "s");
             }
             catch (Exception ex)
             {
-                sb.AppendLine("后台扫描异常: " + ex.Message);
-                Log.Error("自检后台扫描失败", ex);
+                sb.AppendLine("扫描异常: " + ex.Message);
+                Log.Error("自检扫描失败", ex);
             }
             sb.AppendLine();
         }

@@ -1,4 +1,4 @@
-﻿# Codex 图块库（CodexBlockLibrary）v1.0.0
+﻿# Codex 图块库（CodexBlockLibrary）v1.0.5
 
 AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，按**分类 / 标签**管理，
 并把任意图块（含动态参数）**复制 / 插入到当前正在绘制的图纸**中。
@@ -30,7 +30,7 @@ AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，�
 
 **方式二：脚本安装（便携包）**
 
-1. 把 `CodexBlockLibrary-1.0.0.zip` **完整解压**到任意目录（不要在压缩包里直接双击）。
+1. 把 `CodexBlockLibrary-1.0.5.zip` **完整解压**到任意目录（不要在压缩包里直接双击）。
 2. 双击 **`install.cmd`**（装给当前用户，不弹 UAC）；
    要让本机所有用户都能用，改双击 **`install-allusers.cmd`**（会弹 UAC）。
 3. 装完同样重启 AutoCAD。
@@ -52,7 +52,7 @@ AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，�
 | --- | --- |
 | 命令行 `BLKLIB` | 打开 / 显示「Codex 图块库」面板 |
 | 菜单栏 **块库(K)** | 经典菜单栏下拉菜单（插件会把 MENUBAR 自动设为 1） |
-| 功能区 **块库** 选项卡 | 5 个按钮：块库面板 / 扫描图纸 / 动态块统计 / 导出统计表 / 设置 |
+| 功能区 **块库** 选项卡 | 7 个按钮：块库面板 / 扫描图纸 / 重新扫描选中 / 暂停扫描 / 扫描当前图纸 / 导出统计表 / 设置 |
 
 典型流程：
 
@@ -80,7 +80,9 @@ AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，�
 | `BLKCLOSE` | 关闭面板（Esc 等效） |
 | `BLKCOLLAPSE` | 折叠 / 展开面板 |
 | `BLKSCAN` | 扫描文件或整个文件夹，结果加入块库 |
-| `BLKCOUNT` | 统计当前图纸的动态块 / 静态块 / 外部参照，可导出 CSV |
+| `BLKRESCAN` | 只重新扫描列表中选中的图纸（插件不做全局扫描） |
+| `BLKPAUSE` | 暂停 / 继续正在进行的扫描 |
+| `BLKCOUNT` | 扫描**当前打开的这张图纸**并加入块库（动态块 / 静态块 / 外部参照统计，可导出 CSV） |
 | `BLKSTATS` | 导出块库统计表 CSV |
 | `BLKIMPORT` | 把来源图纸中的块定义导入当前图纸 |
 | `BLKSETTINGS` | 设置：分类方式、缩略图、界面挂载、自定义分类规则 |
@@ -112,6 +114,8 @@ A：bundle 只在 AutoCAD **启动时**自动加载。请完全退出 AutoCAD �
 若仍然没有，在命令行执行 `NETLOAD`，选择
 `...\CodexBlockLibrary.bundle\Contents\Windows\CodexBlockLib.UI.dll`，
 然后看日志 `%APPDATA%\Autodesk\CodexBlockLib\codex-blocklib.log`。
+另外：**经典菜单栏的「块库(K)」偶尔不会自动出现**（AutoCAD 启动瞬间 COM 调用可能被拒绝）。
+执行一次 `BLKLIB` 即可立即补挂，插件在后台也会低频重试。
 
 **Q：双击 `install.cmd` 一闪而过 / 提示脚本被禁止？**
 A：安装脚本用 `-ExecutionPolicy Bypass` 启动 PowerShell，一般不会被策略拦住。
@@ -119,6 +123,15 @@ A：安装脚本用 `-ExecutionPolicy Bypass` 启动 PowerShell，一般不会�
 
 **Q：面板打开是窄条，看不到内容？**
 A：这是默认的折叠状态，点状态栏右侧的 **展开** 即可；状态会被记住。
+
+**Q：面板打开了，但状态栏显示「已载入 0 张图纸 / 0 个块定义」？**
+
+A：说明登记的源图纸路径都失效了（图纸被移动、改名或删除）。点面板工具栏的
+**`修复失效路径`**：在弹出的对话框里对每条失效路径选 **`重新定位...`** 指向新位置，
+或者用 **`移除选中` / `全部移除`** 把失效条目清掉，然后点 `重新扫描选中`。
+这个对话框只调整插件的登记列表，**不会删除磁盘上的任何文件**。
+日志 `%APPDATA%\Autodesk\CodexBlockLib\codex-blocklib.log` 里也会写明是哪些路径失效了
+（`WARN 源图纸路径失效（文件已被移动或删除）: ...`）。
 
 **Q：杀毒软件报警？**
 A：本插件是本地 .NET 程序，不联网、不写注册表、不上传任何数据；
@@ -133,7 +146,7 @@ A：`PackageContents.xml` 声明的最低版本是 **R24.0（AutoCAD 2024）**�
 ## 六、目录结构
 
 ```
-CodexBlockLibrary-1.0.0\
+CodexBlockLibrary-1.0.5\
 ├─ Setup.exe              一键安装 / 卸载（推荐，双击运行）
 ├─ install.cmd            双击安装（当前用户）
 ├─ install-allusers.cmd   双击安装（所有用户，需 UAC）

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -43,6 +43,9 @@ namespace CodexBlockLib.UI
         private ToolStripButton statusCloseButton;
         private ToolStripButton foldButton;
         private ToolStripButton uninstallButton;
+        private ToolStripButton pauseButton;
+        private bool scanPaused;
+        private bool pauseIconPaused;
         private PictureBox previewBox;
         private Label detailLabel;
         private ComboBox categoryBox;
@@ -61,6 +64,10 @@ namespace CodexBlockLib.UI
         private bool thumbLoaderRunning;
         private bool replaceAllRequested = true;
         private int scanSeq;
+        private List<string> scanBatchFiles;
+        private ScanOptions scanBatchOptions;
+        private List<FileScanResult> scanBatchResults;
+        private bool scanBatchReplaceAll = true;
         private bool started;
         private bool userMovedOuterSplit;
 
@@ -86,7 +93,13 @@ namespace CodexBlockLib.UI
             try
             {
                 ReloadFromSession();
-                if (ScanSession.Count == 0 && LibraryStore.Settings.SourceFiles.Count > 0) StartScan(AllRegisteredFiles(), true);
+                // 不做自动扫描：源图纸较多时主线程扫描会长时间占用 AutoCAD。
+                // 这里只提示，等用户点“重新扫描”（或命令行 BLKSCAN）时再开始。
+                if (ScanSession.Count == 0 && LibraryStore.Settings.SourceFiles.Count > 0)
+                {
+                    SetStatus("已登记 " + LibraryStore.Settings.SourceFiles.Count.ToString(CultureInfo.InvariantCulture)
+                        + " 张源图纸。插件不会自动或全局扫描，点「添加图纸」指定要扫描的文件。", 0, 0);
+                }
             }
             catch (System.Exception ex)
             {
@@ -116,8 +129,13 @@ namespace CodexBlockLib.UI
             toolStrip.RenderMode = ToolStripRenderMode.System;
             toolStrip.Items.Add(MakeButton("添加图纸", "library", delegate { AddFilesDialog(); }));
             toolStrip.Items.Add(MakeButton("添加文件夹", "library", delegate { AddFolderDialog(); }));
-            toolStrip.Items.Add(MakeButton("重新扫描", "scan", delegate { StartScan(AllRegisteredFiles(), true); }));
-            toolStrip.Items.Add(MakeButton("统计当前图纸", "stats", delegate { ScanCurrentDrawing(); }));
+            toolStrip.Items.Add(MakeButton("重新扫描选中", "scan", delegate { RescanSelectedSources(); }));
+            pauseButton = MakeButton("暂停扫描", "pause", delegate { ToggleScanPause(); });
+            pauseButton.Enabled = false;
+            pauseButton.ToolTipText = "暂停 / 继续正在进行的图纸扫描";
+            toolStrip.Items.Add(pauseButton);
+            toolStrip.Items.Add(MakeButton("修复失效路径", "scan", delegate { RepairMissingSources(); }));
+            toolStrip.Items.Add(MakeButton("扫描当前图纸", "scan", delegate { ScanCurrentDrawing(); }));
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.Add(MakeButton("移除", "copy", delegate { RemoveSelectedFile(); }));
             toolStrip.Items.Add(MakeButton("清空", "copy", delegate { ClearAll(); }));
@@ -342,7 +360,7 @@ namespace CodexBlockLib.UI
             menu.Items.Add("设置分类...", null, delegate { AssignCategoryDialog(); });
             menu.Items.Add("编辑标签...", null, delegate { if (tagBox != null) tagBox.Focus(); });
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("重新统计该图纸", null, delegate { RescanSelectedFile(); });
+            menu.Items.Add("重新扫描该图纸", null, delegate { RescanSelectedFile(); });
             menu.Items.Add("从库中移除该图纸", null, delegate { RemoveSelectedFile(); });
             return menu;
         }
@@ -455,7 +473,7 @@ namespace CodexBlockLib.UI
             exportButton.Size = new Size(90, 26);
             exportButton.Click += delegate { ExportCsv(); };
             var currentButton = new Button();
-            currentButton.Text = "统计当前图纸";
+            currentButton.Text = "扫描当前图纸";
             currentButton.Location = new Point(100, 4);
             currentButton.Size = new Size(110, 26);
             currentButton.Click += delegate { ScanCurrentDrawing(); };
@@ -514,6 +532,7 @@ namespace CodexBlockLib.UI
             RebuildTree();
             RefreshList();
             RefreshStats();
+            UpdatePauseButton();
             SetStatus("已载入 " + results.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸 / "
                 + rows.Count.ToString(CultureInfo.InvariantCulture) + " 个块定义", 0, 0);
         }
@@ -733,75 +752,96 @@ namespace CodexBlockLib.UI
         {
             if (thumbLoaderRunning || shown.Count == 0) return;
 
-            var pending = new List<BlockRow>();
+            int size = LibraryStore.Settings.ThumbSize >= 32 ? LibraryStore.Settings.ThumbSize : 96;
+
+            // 按来源图纸分组：同一张图纸只打开一次数据库，
+            // 避免每个块都重开一次 DWG 让 AutoCAD 长时间卡顿。
+            var order = new List<string>();
+            var groups = new Dictionary<string, List<BlockRow>>();
             foreach (BlockRow row in shown)
             {
                 if (row.Item == null) continue;
                 int index;
                 if (thumbIndex.TryGetValue(row.Info.Key, out index)) { row.Item.ImageIndex = index; continue; }
                 if (row.Info.IsXref) continue;
-                pending.Add(row);
-                if (pending.Count >= 300) break;
+                if (string.IsNullOrEmpty(row.Info.SourceFile)) continue;
+                List<BlockRow> bucket;
+                if (!groups.TryGetValue(row.Info.SourceFile, out bucket))
+                {
+                    bucket = new List<BlockRow>();
+                    groups[row.Info.SourceFile] = bucket;
+                    order.Add(row.Info.SourceFile);
+                }
+                bucket.Add(row);
             }
-            if (pending.Count == 0) return;
+            if (order.Count == 0) return;
 
-            int size = LibraryStore.Settings.ThumbSize >= 32 ? LibraryStore.Settings.ThumbSize : 96;
             thumbLoaderRunning = true;
-            Task.Factory.StartNew(delegate
+            int remaining = order.Count;
+            foreach (string path in order)
             {
-                try
+                string file = path;
+                List<BlockRow> rows = groups[path];
+                MainThreadPump.Enqueue(delegate
                 {
-                    foreach (BlockRow row in pending)
+                    try { LoadThumbnailsForFile(file, rows, size); }
+                    catch (Exception ex)
                     {
-                        try
-                        {
-                            Bitmap bitmap = ThumbCache.Load(row.Info.SourceFile, row.Info.Name);
-                            if (bitmap == null && !row.Result.IsCurrentDrawing) bitmap = RenderThumbnailFromFile(row, size);
-                            if (bitmap != null)
-                            {
-                                BlockRow target = row;
-                                Bitmap local = bitmap;
-                                try { BeginInvoke(new Action(delegate { AddThumbnail(target, local); })); }
-                                catch { local.Dispose(); }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Warn("生成缩略图失败(" + row.Info.Name + "): " + ex.Message);
-                        }
+                        Log.Warn("生成缩略图失败(" + Path.GetFileName(file) + "): " + ex.Message);
                     }
-                }
-                finally
-                {
-                    try { BeginInvoke(new Action(delegate { thumbLoaderRunning = false; })); }
-                    catch { thumbLoaderRunning = false; }
-                }
-            });
+                    finally
+                    {
+                        remaining--;
+                        if (remaining <= 0) thumbLoaderRunning = false;
+                    }
+                });
+            }
         }
 
-        private static Bitmap RenderThumbnailFromFile(BlockRow row, int size)
+        /// <summary>打开一次源图纸，为其中所有缺缩略图的块批量生成并缓存。</summary>
+        private void LoadThumbnailsForFile(string file, List<BlockRow> rows, int size)
         {
+            var missing = new List<BlockRow>();
+            foreach (BlockRow row in rows)
+            {
+                Bitmap cached = ThumbCache.Load(file, row.Info.Name);
+                if (cached != null) { AddThumbnail(row, cached); continue; }
+                if (row.Result.IsCurrentDrawing) continue;
+                missing.Add(row);
+            }
+            if (missing.Count == 0) return;
+
             string error;
-            Database db = DrawingReader.Open(row.Info.SourceFile, out error);
-            if (db == null) return null;
+            Database db = DrawingReader.Open(file, out error);
+            if (db == null)
+            {
+                Log.Warn("缩略图打开图纸失败: " + Path.GetFileName(file) + " (" + error + ")");
+                return;
+            }
             try
             {
                 using (Transaction tr = db.TransactionManager.StartTransaction())
                 {
                     var table = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
-                    if (!table.Has(row.Info.Name)) { tr.Commit(); return null; }
-                    ShapeSet shapes = GeometryCapture.CaptureBlock(table[row.Info.Name], tr, db);
+                    foreach (BlockRow row in missing)
+                    {
+                        try
+                        {
+                            if (!table.Has(row.Info.Name)) continue;
+                            ShapeSet shapes = GeometryCapture.CaptureBlock(table[row.Info.Name], tr, db);
+                            if (!shapes.HasData) continue;
+                            Bitmap bitmap = ThumbnailRenderer.Render(shapes, size, size);
+                            if (bitmap == null) continue;
+                            ThumbCache.Save(file, row.Info.Name, bitmap);
+                            AddThumbnail(row, bitmap);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Warn("渲染缩略图失败(" + row.Info.Name + "): " + ex.Message);
+                        }
+                    }
                     tr.Commit();
-                    if (!shapes.HasData) return null;
-                    Bitmap bitmap = ThumbnailRenderer.Render(shapes, size, size);
-                    ThumbCache.Save(row.Info.SourceFile, row.Info.Name, bitmap);
-                    return bitmap;
                 }
-            }
-            catch (Exception ex)
-            {
-                Log.Warn("渲染缩略图失败(" + row.Info.Name + "): " + ex.Message);
-                return null;
             }
             finally
             {
@@ -1190,6 +1230,160 @@ namespace CodexBlockLib.UI
             return files;
         }
 
+        /// <summary>已登记但文件已经不存在的源图纸（被移动或删除）。</summary>
+        private List<string> RegisteredMissingFiles()
+        {
+            var missing = new List<string>();
+            try
+            {
+                foreach (string file in LibraryStore.Settings.SourceFiles)
+                {
+                    if (!File.Exists(file)) missing.Add(file);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("检查源图纸路径失败: " + ex.Message);
+            }
+            return missing;
+        }
+
+        /// <summary>暂停 / 继续正在进行的扫描（面板按钮与 BLKPAUSE 命令共用）。</summary>
+        public void ToggleScanPause()
+        {
+            bool busy = scanning || MainThreadPump.Pending > 0;
+            if (!busy && !scanPaused)
+            {
+                SetStatus("当前没有正在进行的扫描或后台任务。", 0, 0);
+                return;
+            }
+
+            scanPaused = !scanPaused;
+            MainThreadPump.SetPaused(MainThreadPump.PauseReasonScan, scanPaused);
+            UpdatePauseButton();
+            if (scanPaused)
+            {
+                Log.Write("用户暂停扫描");
+                SetStatus("已暂停扫描与后台缩略图任务，点“继续扫描”恢复。", 0, 0);
+            }
+            else
+            {
+                Log.Write("用户继续扫描");
+                SetStatus("已继续扫描...", 0, 0);
+            }
+        }
+
+        private void UpdatePauseButton()
+        {
+            if (pauseButton == null) return;
+            try
+            {
+                pauseButton.Enabled = scanning || scanPaused || MainThreadPump.Pending > 0;
+                pauseButton.Text = scanPaused ? "继续扫描" : "暂停扫描";
+                pauseButton.ToolTipText = scanPaused ? "继续扫描与后台缩略图任务" : "暂停正在进行的扫描与后台缩略图任务";
+                if (pauseIconPaused != scanPaused)
+                {
+                    pauseIconPaused = scanPaused;
+                    pauseButton.Image = Icons.MakeBitmap(scanPaused ? "play" : "pause");
+                    pauseButton.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+                }
+            }
+            catch (System.Exception ex) { Log.Warn("更新暂停按钮失败: " + ex.Message); }
+        }
+
+        /// <summary>命令行 BLKRESCAN 的入口：只重新扫描面板里选中的图纸，返回张数（0 = 没有选中）。</summary>
+        public int RescanAllSources()
+        {
+            List<string> files = SelectedSourceFiles();
+            if (files.Count == 0)
+            {
+                SetStatus("请先在列表里选中要重新扫描的图纸；要扫描新图纸请点「添加图纸」。", 0, 0);
+                return 0;
+            }
+            StartScan(files, false);
+            return files.Count;
+        }
+
+        /// <summary>只重新扫描列表中选中的图纸。插件不提供“扫描全部已登记图纸”的入口。</summary>
+        private void RescanSelectedSources()
+        {
+            List<string> files = SelectedSourceFiles();
+            if (files.Count == 0)
+            {
+                SetStatus("请先在列表里选中要重新扫描的图纸；要扫描新图纸请点「添加图纸」或「添加文件夹」。", 0, 0);
+                return;
+            }
+            StartScan(files, false);
+        }
+
+        /// <summary>列表中选中行对应的源图纸（去重，跳过当前图纸与无路径项）。</summary>
+        private List<string> SelectedSourceFiles()
+        {
+            var files = new List<string>();
+            if (list == null) return files;
+            foreach (ListViewItem item in list.SelectedItems)
+            {
+                BlockRow row = item.Tag as BlockRow;
+                if (row == null || row.Info == null || row.Result == null) continue;
+                if (row.Result.IsCurrentDrawing) continue;
+                string path = row.Info.SourceFile;
+                if (string.IsNullOrEmpty(path)) continue;
+                if (!files.Contains(path)) files.Add(path);
+            }
+            return files;
+        }
+
+        /// <summary>
+        /// 扫描“全部已登记源图纸”。注意：这条路径已不再挂到任何按钮或命令上——
+        /// 插件打开后不扫描全局，只扫描用户在面板里明确指定的文件；保留此方法以备日后需要。
+        /// </summary>
+        private void ScanRegisteredSources()
+        {
+            List<string> valid = AllRegisteredFiles();
+            List<string> missing = RegisteredMissingFiles();
+
+            if (missing.Count > 0)
+            {
+                foreach (string file in missing) Log.Warn("源图纸路径失效（文件已被移动或删除）: " + file);
+            }
+
+            if (valid.Count == 0)
+            {
+                if (missing.Count > 0)
+                {
+                    SetStatus("已登记的 " + missing.Count.ToString(CultureInfo.InvariantCulture)
+                        + " 张源图纸都找不到了（文件被移动或删除）。请点「修复失效路径」重新定位。", 0, 0);
+                    return;
+                }
+                SetStatus("还没有添加源图纸，请先点「添加图纸」或「添加文件夹」", 0, 0);
+                return;
+            }
+
+            StartScan(valid, true);
+        }
+
+        /// <summary>打开「修复失效路径」对话框：重新定位或清理失效条目。</summary>
+        private void RepairMissingSources()
+        {
+            List<string> missing = RegisteredMissingFiles();
+            if (missing.Count == 0)
+            {
+                SetStatus("所有已登记的源图纸都在，无需修复", 0, 0);
+                return;
+            }
+
+            bool changed;
+            using (var dialog = new MissingFilesForm(missing))
+            {
+                dialog.ShowDialog(this);
+                changed = dialog.Changed;
+            }
+
+            if (!changed) return;
+
+            SetStatus("已更新源图纸列表。要重新扫描时，请在列表里选中图纸后点「重新扫描选中」。", 0, 0);
+        }
+
         private void AddFilesDialog()
         {
             using (var dialog = new OpenFileDialog())
@@ -1234,93 +1428,100 @@ namespace CodexBlockLib.UI
 
         private void StartScan(List<string> files, bool replaceAll)
         {
-            if (scanning) { SetStatus("已有扫描任务在进行中", 0, 0); return; }
+            if (scanning)
+            {
+                // 暂停中的扫描：再点一次“重新扫描”就顺手继续，避免用户以为卡住了。
+                if (scanPaused) { ToggleScanPause(); SetStatus("已继续暂停中的扫描...", 0, 0); }
+                else SetStatus("已有扫描任务在进行中", 0, 0);
+                return;
+            }
             if (files == null || files.Count == 0) { SetStatus("没有可扫描的图纸，请先添加图纸", 0, 0); return; }
 
             scanning = true;
+            scanPaused = false;
+            MainThreadPump.SetPaused(MainThreadPump.PauseReasonScan, false);
+            UpdatePauseButton();
             replaceAllRequested = replaceAll;
             int sequence = ++scanSeq;
-            ScanOptions options = LibraryStore.Settings.ToScanOptions();
-            var collected = new List<FileScanResult>();
 
             progressBar.Visible = true;
             progressBar.Value = 0;
             progressBar.Maximum = files.Count;
             SetStatus("开始扫描 " + files.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸...", 0, files.Count);
 
-            Task.Factory.StartNew(delegate
+            // AutoCAD 的 Database 只能在主线程访问：后台线程调用 ReadDwgFile 时，原生代码内部
+            // 会查询调色板主题并抛出跨线程异常，托管异常穿透原生栈帧后就是
+            // “致命错误: Unhandled e0434352h Exception”，整个 AutoCAD 被终止。
+            // 所以把每张图纸单独排入主线程队列，在空闲时机逐张扫描。
+            scanBatchFiles = new List<string>(files);
+            scanBatchOptions = LibraryStore.Settings.ToScanOptions();
+            scanBatchResults = new List<FileScanResult>();
+            scanBatchReplaceAll = replaceAll;
+
+            for (int i = 0; i < scanBatchFiles.Count; i++)
             {
-                for (int i = 0; i < files.Count; i++)
-                {
-                    if (sequence != scanSeq) return collected;
-                    string file = files[i];
-                    int index = i;
-                    Report("正在扫描 (" + (index + 1).ToString(CultureInfo.InvariantCulture) + "/" + files.Count.ToString(CultureInfo.InvariantCulture) + "): "
-                        + Path.GetFileName(file), index, files.Count);
-                    try
-                    {
-                        FileScanResult result = BlockScanner.ScanFile(file, options, delegate (ScanProgress progress)
-                        {
-                            Report(progress.Message + " - " + Path.GetFileName(file), index, files.Count);
-                        });
-                        try { CategoryRules.Apply(result.Blocks, LibraryStore.Settings); }
-                        catch (Exception ex) { Log.Error("应用分类规则失败", ex); }
-                        collected.Add(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error("扫描失败: " + file, ex);
-                        var failed = new FileScanResult();
-                        failed.Path = file;
-                        failed.Label = Path.GetFileName(file);
-                        failed.Ok = false;
-                        failed.Error = ex.Message;
-                        collected.Add(failed);
-                    }
-                }
-                return collected;
-            })
-            .ContinueWith(delegate (Task<List<FileScanResult>> task)
+                int index = i;
+                MainThreadPump.Enqueue(delegate { ScanOneFile(sequence, index); });
+            }
+        }
+
+        /// <summary>在主线程上扫描队列中的一张图纸。</summary>
+        private void ScanOneFile(int sequence, int index)
+        {
+            List<string> files = scanBatchFiles;
+            if (files == null || index >= files.Count) return;
+
+            if (sequence == scanSeq)
             {
-                List<FileScanResult> results = null;
-                bool faulted = task.IsFaulted;
-                if (!faulted && task.Result != null) results = task.Result;
+                string file = files[index];
+                SetStatus("正在扫描 (" + (index + 1).ToString(CultureInfo.InvariantCulture) + "/"
+                    + files.Count.ToString(CultureInfo.InvariantCulture) + "): " + Path.GetFileName(file),
+                    index, files.Count);
                 try
                 {
-                    BeginInvoke(new Action(delegate { OnScanFinished(sequence, results, files, faulted); }));
+                    FileScanResult result = BlockScanner.ScanFile(file, scanBatchOptions, delegate (ScanProgress progress)
+                    {
+                        if (sequence == scanSeq) SetStatus(progress.Message + " - " + Path.GetFileName(file), index, files.Count);
+                    });
+                    try { CategoryRules.Apply(result.Blocks, LibraryStore.Settings); }
+                    catch (Exception ex) { Log.Error("应用分类规则失败", ex); }
+                    scanBatchResults.Add(result);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("回填扫描结果失败", ex);
+                    Log.Error("扫描失败: " + file, ex);
+                    var failed = new FileScanResult();
+                    failed.Path = file;
+                    failed.Label = Path.GetFileName(file);
+                    failed.Ok = false;
+                    failed.Error = ex.Message;
+                    scanBatchResults.Add(failed);
                 }
-            });
+            }
+
+            if (index == files.Count - 1)
+            {
+                List<FileScanResult> results = scanBatchResults;
+                scanBatchFiles = null;
+                scanBatchOptions = null;
+                scanBatchResults = null;
+                OnScanFinished(sequence, results, files, false);
+            }
         }
 
         private void OnScanFinished(int sequence, List<FileScanResult> results, List<string> files, bool faulted)
         {
             scanning = false;
+            scanPaused = false;
+            MainThreadPump.SetPaused(MainThreadPump.PauseReasonScan, false);
+            UpdatePauseButton();
             progressBar.Visible = false;
             if (sequence != scanSeq) return;
 
-            if (faulted || results == null)
+            if (results == null)
             {
-                Log.Warn("后台扫描失败，改为在界面线程同步重试");
-                var fallback = new List<FileScanResult>();
-                ScanOptions options = LibraryStore.Settings.ToScanOptions();
-                foreach (string file in files)
-                {
-                    try
-                    {
-                        FileScanResult result = BlockScanner.ScanFile(file, options, null);
-                        CategoryRules.Apply(result.Blocks, LibraryStore.Settings);
-                        fallback.Add(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error("同步扫描失败: " + file, ex);
-                    }
-                }
-                results = fallback;
+                Log.Warn("本次扫描没有产生结果，已跳过回填");
+                return;
             }
 
             if (replaceAllRequested) ScanSession.Replace(results);
@@ -1346,23 +1547,33 @@ namespace CodexBlockLib.UI
         private void ScanCurrentDrawing()
         {
             Document doc = AcApp.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
+            if (doc == null) { SetStatus("当前没有打开的图纸。", 0, 0); return; }
             try
             {
-                SetStatus("正在统计当前图纸...", 0, 0);
+                SetStatus("正在扫描当前图纸...", 0, 0);
                 string label = string.IsNullOrEmpty(doc.Name) ? "当前图纸(未保存)" : Path.GetFileName(doc.Name);
-                FileScanResult result = BlockScanner.ScanDatabase(doc.Database, doc.Name ?? label, LibraryStore.Settings.ToScanOptions(), null);
+                FileScanResult result;
+                // 从面板（非命令上下文）读取当前文档数据库前先锁定文档，避免 eLockViolation。
+                using (DocumentLock docLock = doc.LockDocument())
+                {
+                    result = BlockScanner.ScanDatabase(doc.Database, doc.Name ?? label, LibraryStore.Settings.ToScanOptions(), null);
+                }
                 result.Label = label;
                 CategoryRules.Apply(result.Blocks, LibraryStore.Settings);
                 ScanSession.AddOrReplace(result);
                 ReloadFromSession();
-                SetStatus("当前图纸: 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
-                    + " 个 / 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个", 0, 0);
+                int blockCount = result.Blocks == null ? 0 : result.Blocks.Count;
+                Log.Write("已扫描当前图纸: " + label + " (图块 " + blockCount.ToString(CultureInfo.InvariantCulture)
+                    + " 个, 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
+                    + " 个, 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个)");
+                SetStatus("已扫描当前图纸 " + label + ": 图块 " + blockCount.ToString(CultureInfo.InvariantCulture)
+                    + " 个 / 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
+                    + " 个 / 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个（已加入块库）", 0, 0);
             }
             catch (Exception ex)
             {
-                Log.Error("统计当前图纸失败", ex);
-                ShowError("统计当前图纸失败: " + ex.Message);
+                Log.Error("扫描当前图纸失败", ex);
+                ShowError("扫描当前图纸失败: " + ex.Message);
             }
         }
 
@@ -1572,8 +1783,13 @@ namespace CodexBlockLib.UI
         private void Report(string message, int current, int total)
         {
             if (IsDisposed || !IsHandleCreated) return;
-            try { BeginInvoke(new Action(delegate { SetStatus(message, current, total); })); }
-            catch { }
+            if (InvokeRequired)
+            {
+                try { BeginInvoke(new Action(delegate { SetStatus(message, current, total); })); }
+                catch { }
+                return;
+            }
+            SetStatus(message, current, total);
         }
 
         private void SetStatus(string message, int current, int total)

@@ -16,7 +16,7 @@ namespace CodexBlockLibrary.Setup
         internal const string BundleName = "CodexBlockLibrary.bundle";
         internal const string PayloadRes = "CodexBlockLibrary.payload.zip";
         internal const string ReadmeRes = "CodexBlockLibrary.readme.md";
-        internal const string Version = "1.0.0";
+        internal const string Version = "1.0.3";
 
         internal const int ExitOk = 0;
         internal const int ExitFail = 1;

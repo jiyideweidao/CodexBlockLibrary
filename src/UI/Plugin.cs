@@ -18,6 +18,7 @@ namespace CodexBlockLib.UI
             try
             {
                 AppPaths.Ensure();
+                MainThreadGuard.Capture();
                 Log.Write("=== Codex 图块库 " + PluginInfo.Version + " 加载 (" + typeof(BlockLibraryPlugin).Assembly.Location + ") ===");
                 try { LibraryStore.Load(true); }
                 catch (System.Exception ex) { Log.Error("读取配置失败", ex); }
@@ -37,6 +38,7 @@ namespace CodexBlockLib.UI
         {
             try
             {
+                MainThreadPump.Shutdown();
                 UnhookIdle();
                 if (LibraryStore.Settings.MenuBarEnabled) RibbonMenu.RemoveMenuBar();
                 Log.Write("插件已卸载");
@@ -76,7 +78,10 @@ namespace CodexBlockLib.UI
             try
             {
                 RibbonMenu.Build();
-                if (RibbonMenu.UiBuilt || idleCalls > 600) UnhookIdle();
+                if (RibbonMenu.UiBuilt) { UnhookIdle(); return; }
+                // 功能区/附加模块已就绪、只剩经典菜单栏时不要立刻解绑：
+                // 让 RibbonMenu 低频重试，避免启动瞬间 COM 被拒后整个会话都没有“块库(K)”菜单。
+                if (idleCalls > 2000) UnhookIdle();
             }
             catch (System.Exception ex)
             {
@@ -88,7 +93,7 @@ namespace CodexBlockLib.UI
 
     public static class PluginInfo
     {
-        public const string Version = "1.0.0";
+        public const string Version = "1.0.5";
         public const string DisplayName = "Codex 图块库 (CodexBlockLibrary)";
     }
 }

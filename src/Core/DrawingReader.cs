@@ -49,6 +49,15 @@ namespace CodexBlockLib.Core
         /// <summary>打开图纸为侧数据库。失败时返回 null 并给出中文原因。</summary>
         public static Database Open(string path, out string error)
         {
+            if (!MainThreadGuard.IsMainThread)
+            {
+                // 后台线程访问 Database 会让托管异常穿透原生栈帧，直接终止 AutoCAD（致命错误 e0434352h）。
+                // 这里宁可让单个图纸扫描失败，也绝不冒险触碰数据库。
+                error = "AutoCAD 数据库只能在主线程访问，已跳过该图纸";
+                Log.Error("拒绝在后台线程打开图纸: " + path + " (" + MainThreadGuard.Describe() + ")",
+                    new InvalidOperationException(error));
+                return null;
+            }
             error = string.Empty;
             if (string.IsNullOrEmpty(path)) { error = "路径为空"; return null; }
             if (!File.Exists(path)) { error = "文件不存在"; return null; }

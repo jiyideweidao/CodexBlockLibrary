@@ -3,7 +3,7 @@
 扫描其它 `dwg / dwt / dws / dxf` 图纸中的图块，统计**动态块**数量，按**分类 / 标签**管理，
 并把任意图块**复制 / 插入到当前正在绘制的图纸**。
 
-- 版本：1.0.0
+- 版本：1.0.5
 - 目标平台：AutoCAD 2024（R24.3，简体中文）+ .NET Framework 4.8
 - 已安装位置（用户级，无需管理员）：
   `%APPDATA%\Autodesk\ApplicationPlugins\CodexBlockLibrary.bundle`
@@ -47,6 +47,9 @@
 | 经典菜单栏 **块库(K)** | 8 项下拉菜单；插件会自动把 `MENUBAR` 设为 1（可在设置中关闭） |
 
 菜单栏下拉菜单挂在 AutoCAD 的 `CUSTOM` 菜单组下。
+> 如果启动后**没看到**「块库(K)」菜单（AutoCAD 刚启动时 COM 偶尔会被拒绝），
+> 执行一次 `BLKLIB` 或 `BLKSCAN` 都会自动补挂；插件在后台也会低频重试。
+
 > AutoCAD 2024 已移除 COM 的 `MenuGroups.Add`，无法再新建菜单组，因此插件复用 `CUSTOM` 组。
 
 ## 二之二、面板折叠与关闭
@@ -67,6 +70,27 @@
 
 关闭只是隐藏面板，随时用 `BLKLIB` 重新打开。
 
+## 二之三、源图纸路径失效了怎么办
+
+图块库登记的是**源图纸的绝对路径**。图纸被移动、改名或删除（例如清理临时目录）后，这些登记就会失效：
+插件不会报错崩溃，但对应图纸里的块一个也扫不出来。
+
+**怎么发现**
+
+- 面板状态栏显示的是**实际扫到的**数量，例如「已载入 0 张图纸 / 0 个块定义」；
+- 日志 `%APPDATA%\Autodesk\CodexBlockLib\codex-blocklib.log` 里，每条失效路径都会记一行
+  `WARN 源图纸路径失效（文件已被移动或删除）: <路径>`；
+- 点 `重新扫描选中` 时如果一条都扫不到，状态栏会直接说明有几条路径失效、该点哪个按钮。
+
+**怎么修**
+
+- 工具栏 **`修复失效路径`** 按钮：列出全部失效路径，三种处理方式——
+  - `重新定位...`：给这条登记重新指定一个文件（原登记项被替换成新路径）；
+  - `移除选中` / `全部移除`：把失效登记从列表里删掉；
+  - 这个对话框只会**调整插件的登记列表，不会删除磁盘上的任何文件**。
+- 处理完点 `重新扫描选中`（或重启 AutoCAD）即可恢复。
+- 图纸只是换了位置的话，也可以先 `移除`，再用 `添加图纸` / `添加文件夹` 重新登记。
+
 ## 三、命令
 
 | 命令 | 功能 |
@@ -76,7 +100,9 @@
 | `BLKCOLLAPSE` | 折叠 / 展开面板（折叠后只留工具条与状态栏） |
 | `BLKUNINSTALL` | 卸载插件（删除 `ApplicationPlugins` 下的插件包，重启 AutoCAD 后生效） |
 | `BLKSCAN` | 选择文件(F) 或文件夹(D) 扫描，结果加入块库 |
-| `BLKCOUNT` | 统计当前图纸的动态块/静态块/外部参照，可选导出 CSV |
+| `BLKRESCAN` | 只重新扫描**列表中选中的图纸**（等同面板工具栏「重新扫描选中」；插件不做任何全局扫描） |
+| `BLKPAUSE` | 暂停 / 继续正在进行的扫描（面板工具栏「暂停扫描」；功能区与经典菜单也有入口） |
+| `BLKCOUNT` | 扫描**当前打开的这张图纸**并加入块库（动态块/静态块/外部参照统计，可选导出 CSV） |
 | `BLKSTATS` | 导出块库统计表 CSV（`%USERPROFILE%\Documents\CodexBlockLib\`） |
 | `BLKIMPORT` | 把来源图纸中的块定义导入当前图纸（A=全部 / D=仅动态块） |
 | `BLKSETTINGS` | 设置：分类方式、缩略图、界面挂载、自定义分类规则 |
@@ -129,6 +155,7 @@ CodexBlockLibrary\
 │   ├─ PaletteHost.cs       PaletteSet 宿主
 │   ├─ MainPalette.cs       块库面板（树 / 缩略图列表 / 详情 / 统计表）
 │   ├─ SettingsForm.cs      设置对话框
+│   ├─ MissingFilesForm.cs  失效源图纸路径的重新定位 / 移除
 │   ├─ Commands.cs          对外的 11 个命令
 │   ├─ SelfTest.cs          自检
 │   └─ Uninstaller.cs       一键卸载（路径校验 + 退出后后台清理）
@@ -178,6 +205,11 @@ AutoCAD 命令行执行 `BLKSELFTEST`：
   可在设置中取消“自动显示经典菜单栏”。
 - 动态块的“变体”按参数值组合统计；同一块定义实例极多时，读取参数有上限
   （`MaxPropertyReadsPerBlock`，默认 60），避免大图纸卡顿。
+- **AutoCAD 的 Database / Document API 只能在主线程（文档线程）使用**。插件已把全部图纸读写
+  集中到主线程队列 `MainThreadPump`（由 `Application.Idle` + WinForms 计时器驱动）里逐个执行。
+  新增功能时请不要在后台线程调用 `Database.ReadDwgFile`：AutoCAD 原生代码会在该调用链中访问
+  WPF 调色板主题，跨线程异常穿透原生栈帧后托管 `try/catch` 无法拦截，会直接以
+  “致命错误: Unhandled e0434352h Exception” 终止整个 AutoCAD 进程。
 
 ## 十、打包与分发（做安装包给别人用）
 
@@ -193,14 +225,14 @@ AutoCAD 命令行执行 `BLKSELFTEST`：
 
 | 文件 | 大小 | 用途 |
 | --- | --- | --- |
-| `CodexBlockLibrary-1.0.0-Setup.exe` | ~106 KB | 单文件安装程序，内嵌整个插件包，双击即可用 |
-| `CodexBlockLibrary-1.0.0.zip` | ~184 KB | 便携包：插件包 + 安装/卸载脚本 + 文档（含同一份 Setup.exe） |
+| `CodexBlockLibrary-1.0.5-Setup.exe` | ~106 KB | 单文件安装程序，内嵌整个插件包，双击即可用 |
+| `CodexBlockLibrary-1.0.5.zip` | ~184 KB | 便携包：插件包 + 安装/卸载脚本 + 文档（含同一份 Setup.exe） |
 | `SHA256SUMS.txt` | — | 上面两个文件的 SHA256 校验值 |
 
 别人拿到的分发包里包含：
 
 ```
-CodexBlockLibrary-1.0.0\
+CodexBlockLibrary-1.0.5\
 ├─ Setup.exe               单文件安装程序（推荐）
 ├─ install.cmd             双击安装（当前用户，不需要管理员）
 ├─ install-allusers.cmd    双击安装（所有用户，会弹 UAC）
@@ -254,7 +286,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\uninstall.ps1 -KeepConfig
 ### 校验下载文件
 
 ```powershell
-Get-FileHash .\CodexBlockLibrary-1.0.0-Setup.exe -Algorithm SHA256
+Get-FileHash .\CodexBlockLibrary-1.0.5-Setup.exe -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 
@@ -285,10 +317,10 @@ $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse 
 & $signtool.FullName sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
     /f mycert.pfx /p <证书密码> `
     /d "Codex 图块库 AutoCAD 插件" `
-    .\CodexBlockLibrary-1.0.0-Setup.exe
+    .\CodexBlockLibrary-1.0.5-Setup.exe
 
 # 验证
-Get-AuthenticodeSignature .\CodexBlockLibrary-1.0.0-Setup.exe | Format-List Status, SignerCertificate
+Get-AuthenticodeSignature .\CodexBlockLibrary-1.0.5-Setup.exe | Format-List Status, SignerCertificate
 ```
 
 `Status` 显示 `Valid` 即成功。注意：**签名会改变文件内容，签完必须重算 `SHA256SUMS.txt`**，
@@ -309,7 +341,7 @@ Export-PfxCertificate  -Cert $cert -FilePath mycert.pfx -Password $pwd
 Export-Certificate     -Cert $cert -FilePath mycert.cer
 
 # 3) 对 Setup.exe 签名
-& $signtool.FullName sign /fd SHA256 /f mycert.pfx /p '你的密码' .\CodexBlockLibrary-1.0.0-Setup.exe
+& $signtool.FullName sign /fd SHA256 /f mycert.pfx /p '你的密码' .\CodexBlockLibrary-1.0.5-Setup.exe
 ```
 
 自签名证书默认**不被信任**，用户要先把它装进“受信任的根证书颁发机构”才不会再报警：
@@ -336,7 +368,7 @@ Import-Certificate -FilePath .\mycert.cer -CertStoreLocation Cert:\LocalMachine\
 
 **触发方式**
 
-- 打 tag 推送即自动发布：`git tag v1.0.0 && git push origin v1.0.0`
+- 打 tag 推送即自动发布：`git tag v1.0.5 && git push origin v1.0.5`
 - 或在 Actions 页面手动 `Run workflow`，可填版本号、可勾选“跳过编译”
 
 **流程**
@@ -368,15 +400,60 @@ Import-Certificate -FilePath .\mycert.cer -CertStoreLocation Cert:\LocalMachine\
 cd "...\CodexBlockLibrary"
 git init
 git add .
-git commit -m "Codex 图块库 1.0.0"
+git commit -m "Codex 图块库 1.0.5"
 git remote add origin https://github.com/<你的账号>/CodexBlockLibrary.git
 git push -u origin main
-git tag v1.0.0
-git push origin v1.0.0        # 打完 tag 就会自动出一个 Release
+git tag v1.0.5
+git push origin v1.0.5        # 打完 tag 就会自动出一个 Release
 ```
 
 **本地复现 CI 的打包（不编译）**
 
 ```powershell
-& .\package\make-package.ps1 -SkipBuild -Version 1.0.1
+& .\package\make-package.ps1 -SkipBuild -Version 1.0.5
 ```
+
+
+## 十三、更新日志
+
+**1.0.5**
+
+- 「统计当前图纸」改名为「**扫描当前图纸**」：功能就是“我打开哪张图，就扫哪张图”——读取当前打开图纸的图块并加入块库，不碰其它文件。
+- 插件不再有任何**全局扫描**：打开面板不扫描，也不会因为点某个按钮而一次扫描全部已登记图纸。
+  只有你在插件里**明确指定的文件**才会被扫描——「添加图纸 / 添加文件夹」选择的范围，或列表里选中的图纸。
+- 工具栏「重新扫描」改为「**重新扫描选中**」：只重扫列表里选中的那几张图纸；没有选中时只给提示，不做任何扫描。
+  命令行 `BLKRESCAN` 同步改为“重扫选中”。
+- 「修复失效路径」处理完后不再顺带触发全局重扫，只更新源图纸列表。
+
+**1.0.4**
+
+- 新增「暂停扫描」：面板工具栏的暂停 / 继续按钮、命令行 `BLKPAUSE`，功能区与经典菜单里也各有一个入口；
+  扫描可以随时停下，需要时原地接着跑，不用从头再来。
+- 暂停用「按原因」的队列机制：面板隐藏与用户手动暂停互不干扰——重新显示面板不会把用户暂停的扫描
+  悄悄跑起来，关掉面板也不会丢掉用户暂停的状态。
+- 扫描进行中再点一次「重新扫描」会直接继续暂停中的扫描，避免误以为卡死。
+
+**1.0.3（重要修复）**
+
+- 修复**扫描/打开图纸时 AutoCAD 弹出“致命错误: Unhandled e0434352h Exception”并崩溃**的问题。
+  原因：扫描与缩略图原先在后台线程（`Task.Factory.StartNew`）里调用 `Database.ReadDwgFile`，
+  而 AutoCAD 原生代码在该调用链中会查询 WPF 调色板主题（`PaletteTheme.IsDark` ->
+  `Dispatcher.VerifyAccess`），跨线程异常穿过原生栈帧后无法被托管 `try/catch` 捕获，直接终止进程。
+  现在所有图纸读写都排入主线程队列 `MainThreadPump` 执行，并在 `DrawingReader.Open` 加了
+  主线程守卫：万一还有漏网的调用点，只会让该图纸扫描失败并写日志，绝不会再拖垮 AutoCAD。
+- 扫描改为在主线程空闲时逐张图纸进行，界面不再长时间无响应，进度条与状态实时刷新。
+- 「统计当前图纸」在读取当前文档数据库前先 `LockDocument()`，避免 `eLockViolation`。
+- 不再自动扫描：面板打开时只提示已登记的源图纸数量，扫描由用户点「重新扫描」触发；
+  新增命令行 `BLKRESCAN`，以及功能区/经典菜单里的「重新扫描」入口，便于脚本化与快速调用。
+- 修复**关闭面板后 AutoCAD 仍然卡顿**的问题：关闭只是隐藏面板，原先排队的扫描与缩略图任务会继续
+  在主线程逐张打开图纸；现在面板一旦不可见就暂停队列（含标题栏 × 与 Esc 关闭），重新打开后自动接着跑。
+- 缩略图改为**按来源图纸批量生成**：同一张图纸只打开一次数据库，不再每个图块重开一次 DWG。
+
+**1.0.2**
+
+- 修复经典菜单栏「块库(K)」在启动瞬间 COM 被拒后不再重试、整个会话都挂不上菜单的问题；
+  现在执行一次 `BLKLIB` 即可立即补挂。
+
+**1.0.1**
+
+- 新增「修复失效路径」：源图纸被移动或删除后，可重新定位或移除失效条目。

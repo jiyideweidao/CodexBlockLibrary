@@ -112,30 +112,61 @@ namespace CodexBlockLib.UI
 
             if (!menuDone)
             {
-                try
+                // 启动瞬间 AutoCAD 可能拒绝 COM 调用(忙/拒绝)，因此不能一失败就永久放弃：
+                // 前 60 轮每轮都试，之后降到每 25 轮一次，直到挂上为止（BLKLIB 也可立即重试）。
+                if (attempts <= 60 || (attempts % 25) == 0)
                 {
-                    if (BuildMenuBar()) menuDone = true;
+                    try
+                    {
+                        if (BuildMenuBar()) menuDone = true;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Log.Error("创建下拉菜单失败", ex);
+                        menuDone = true;
+                    }
                 }
-                catch (System.Exception ex)
-                {
-                    Log.Error("创建下拉菜单失败", ex);
-                    menuDone = true;
-                }
+                if (!menuDone && attempts == 61)
+                    WarnOnce("menupending", "经典菜单栏尚未挂上，改为后台低频重试（执行 BLKLIB 可立即重试）");
             }
 
-            if (attempts > 60)
-            {
-                lastMessage = "尝试 " + attempts + " 次后放弃(功能区: " + ribbonDone + ", 菜单: " + menuDone + ", 附加模块: " + addinsDone + ")";
-                ribbonDone = true;
-                menuDone = true;
-                addinsDone = true;
-            }
+            if (ribbonDone && addinsDone && menuDone) lastMessage = "已就绪";
+            else if (ribbonDone && addinsDone) lastMessage = "功能区/附加模块已就绪，经典菜单栏仍在重试（执行 BLKLIB 可立即重试）";
         }
 
         public static bool BuildNow()
         {
             Build();
             return UiBuilt;
+        }
+
+        /// <summary>强制重试挂载经典菜单栏：启动时若因 COM 忙被拒，可用它自愈（BLKLIB 会调用）。</summary>
+        public static void EnsureMenuBar()
+        {
+            if (!UiAvailable) return;
+            try { if (!LibraryStore.Settings.MenuBarEnabled) return; }
+            catch { return; }
+            if (menuDone && MenuBarHasMenu()) return;
+            menuDone = false;
+            try
+            {
+                if (BuildMenuBar()) menuDone = true;
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error("重新挂载经典菜单栏失败", ex);
+            }
+        }
+
+        private static bool MenuBarHasMenu()
+        {
+            try
+            {
+                object app = Autodesk.AutoCAD.ApplicationServices.Application.AcadApplication;
+                object menuBar = GetProperty(app, "MenuBar");
+                return menuBar != null && FindByName(menuBar, MenuTitle) != null;
+            }
+            catch { return false; }
         }
 
         private static bool BuildRibbon(LibrarySettings settings)
@@ -154,7 +185,9 @@ namespace CodexBlockLib.UI
             source.Title = "图块库";
             source.Items.Add(CreateButton("块库面板", "BLKLIB ", "浏览其它图纸中的动态块，并复制到当前图纸 (BLKLIB)", "library", true));
             source.Items.Add(CreateButton("扫描图纸", "BLKSCAN ", "扫描 dwg / dwt / dws / dxf 图纸中的图块 (BLKSCAN)", "scan", true));
-            source.Items.Add(CreateButton("动态块统计", "BLKCOUNT ", "统计当前图纸的动态块数量 (BLKCOUNT)", "stats", true));
+            source.Items.Add(CreateButton("重新扫描选中", "BLKRESCAN ", "只重新扫描列表里选中的图纸 (BLKRESCAN)", "scan", true));
+            source.Items.Add(CreateButton("暂停扫描", "BLKPAUSE ", "暂停 / 继续正在进行的扫描 (BLKPAUSE)", "pause", false));
+            source.Items.Add(CreateButton("扫描当前图纸", "BLKCOUNT ", "读取当前打开的图纸并加入块库 (BLKCOUNT)", "scan", true));
             source.Items.Add(CreateButton("导出统计表", "BLKSTATS ", "导出 CSV 统计表 (BLKSTATS)", "export", false));
             source.Items.Add(CreateButton("设置", "BLKSETTINGS ", "分类方式、缩略图、菜单等设置 (BLKSETTINGS)", "settings", false));
 
@@ -180,7 +213,7 @@ namespace CodexBlockLib.UI
             source.Id = AddinsPanelId;
             source.Title = "Codex 图块库";
             source.Items.Add(CreateButton("块库面板", "BLKLIB ", "浏览其它图纸中的动态块 (BLKLIB)", "library", false));
-            source.Items.Add(CreateButton("动态块统计", "BLKCOUNT ", "统计动态块数量 (BLKCOUNT)", "stats", false));
+            source.Items.Add(CreateButton("扫描当前图纸", "BLKCOUNT ", "扫描当前图纸并加入块库 (BLKCOUNT)", "scan", false));
 
             var panel = new RibbonPanel();
             panel.Source = source;
@@ -300,16 +333,16 @@ namespace CodexBlockLib.UI
             object app = null;
             try { app = Autodesk.AutoCAD.ApplicationServices.Application.AcadApplication; }
             catch (System.Exception ex) { Log.Warn("获取 AcadApplication 失败: " + ex.Message); return false; }
-            if (app == null) return false;
+            if (app == null) { WarnOnce("noapp", "AcadApplication 不可用，经典菜单栏稍后重试"); return false; }
 
             object groups = GetProperty(app, "MenuGroups");
-            if (groups == null) return false;
+            if (groups == null) { WarnOnce("nogroups", "AutoCAD 菜单组(MenuGroups)本次不可用，经典菜单栏稍后重试"); return false; }
 
             object group = PickMenuGroup(groups);
             if (group == null) { WarnOnce("nogroup", "没有可用的菜单组，跳过经典菜单栏挂载"); return false; }
 
             object menus = GetProperty(group, "Menus");
-            if (menus == null) return false;
+            if (menus == null) { WarnOnce("nomenus", "菜单组 " + NameOf(group) + " 的 Menus 本次不可用，经典菜单栏稍后重试"); return false; }
 
             object popup = FindByName(menus, MenuTitle);
             bool created = false;
@@ -318,26 +351,31 @@ namespace CodexBlockLib.UI
                 popup = Invoke(menus, "Add", MenuTitle);
                 created = popup != null;
             }
-            if (popup == null) return false;
+            if (popup == null) { WarnOnce("nopopup", "创建/查找下拉菜单 " + MenuTitle + " 失败（菜单组 " + NameOf(group) + "），经典菜单栏稍后重试"); return false; }
 
             if (created)
             {
                 Invoke(popup, "AddMenuItem", 0, "块库面板(&L)", "BLKLIB ");
                 Invoke(popup, "AddMenuItem", 1, "扫描图纸(&S)...", "BLKSCAN ");
-                Invoke(popup, "AddMenuItem", 2, "统计当前图纸动态块(&C)", "BLKCOUNT ");
-                Invoke(popup, "AddMenuItem", 3, "导出统计表(&E)...", "BLKSTATS ");
-                Invoke(popup, "AddMenuItem", 4, "导入块定义(&I)...", "BLKIMPORT ");
-                Invoke(popup, "AddMenuItem", 5, "设置(&O)...", "BLKSETTINGS ");
-                Invoke(popup, "AddMenuItem", 6, "自检(&T)", "BLKSELFTEST ");
-                Invoke(popup, "AddMenuItem", 7, "关于(&A)", "BLKABOUT ");
+                Invoke(popup, "AddMenuItem", 2, "重新扫描选中的图纸(&R)", "BLKRESCAN ");
+                Invoke(popup, "AddMenuItem", 3, "暂停/继续扫描(&P)", "BLKPAUSE ");
+                Invoke(popup, "AddMenuItem", 4, "扫描当前图纸(&C)", "BLKCOUNT ");
+                Invoke(popup, "AddMenuItem", 5, "导出统计表(&E)...", "BLKSTATS ");
+                Invoke(popup, "AddMenuItem", 6, "导入块定义(&I)...", "BLKIMPORT ");
+                Invoke(popup, "AddMenuItem", 7, "设置(&O)...", "BLKSETTINGS ");
+                Invoke(popup, "AddMenuItem", 8, "自检(&T)", "BLKSELFTEST ");
+                Invoke(popup, "AddMenuItem", 9, "关于(&A)", "BLKABOUT ");
                 Log.Write("已创建下拉菜单: " + MenuTitle + " (菜单组 " + NameOf(group) + ")");
             }
 
             object menuBar = GetProperty(app, "MenuBar");
-            if (menuBar != null && FindByName(menuBar, MenuTitle) == null)
+            if (menuBar == null) { WarnOnce("nobar", "AutoCAD 菜单栏(MenuBar)本次不可用，经典菜单栏稍后重试"); return false; }
+            if (FindByName(menuBar, MenuTitle) == null)
             {
                 int barCount = CountOf(menuBar);
                 if (!TryInvoke(popup, "InsertInMenuBar", barCount)) TryInvoke(popup, "InsertInMenuBar", 0);
+                if (FindByName(menuBar, MenuTitle) == null)
+                { WarnOnce("insertfail", "菜单栏插入未生效: " + MenuTitle + "，稍后重试"); return false; }
                 Log.Write("已插入菜单栏: " + MenuTitle);
             }
 

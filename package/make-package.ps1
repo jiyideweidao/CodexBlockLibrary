@@ -1,8 +1,8 @@
 ﻿<#
   Codex 图块库 - 打包脚本
   产出（release 目录）：
-    CodexBlockLibrary-1.0.0-Setup.exe   单文件 GUI 安装程序（内嵌插件包）
-    CodexBlockLibrary-1.0.0.zip         便携包（bundle + 安装/卸载脚本 + 文档）
+    CodexBlockLibrary-1.0.5-Setup.exe   单文件 GUI 安装程序（内嵌插件包）
+    CodexBlockLibrary-1.0.5.zip         便携包（bundle + 安装/卸载脚本 + 文档）
     SHA256SUMS.txt                       校验值
 
   用法：  & .\package\make-package.ps1               （先编译再打包）
@@ -10,7 +10,7 @@
 #>
 param(
   [switch]$SkipBuild,
-  [string]$Version    = '1.0.0',
+  [string]$Version    = '1.0.5',
   [string]$ToolsRoot,
   [string]$Csc,
   [string]$Refs,
