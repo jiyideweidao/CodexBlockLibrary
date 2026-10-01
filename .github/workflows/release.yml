@@ -19,6 +19,12 @@ on:
 permissions:
   contents: write
 
+env:
+  # 发版标题前缀放在 env 里。注意：所有 run 脚本块必须保持纯 ASCII ——
+  # GitHub Actions 在 Windows 上把 run 块写成临时 .ps1 时按 ANSI 解码，
+  # 非 ASCII 字符会破坏语法（实测报 "string is missing the terminator"）。
+  RELEASE_TITLE_PREFIX: 'Codex 图块库'
+
 jobs:
   package:
     name: 打包并发布
@@ -33,7 +39,7 @@ jobs:
         run: |
           $hit = Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Recurse -File -Filter 'make-package.ps1' -ErrorAction SilentlyContinue |
                  Where-Object { $_.Directory.Name -eq 'package' } | Select-Object -First 1
-          if (-not $hit) { throw '未找到 package\make-package.ps1' }
+          if (-not $hit) { throw 'make-package.ps1 not found under a package directory' }
           $root = Split-Path -Parent $hit.Directory.FullName
           $utf8 = New-Object System.Text.UTF8Encoding($false)
           [System.IO.File]::AppendAllText($env:GITHUB_ENV,    "PROJECT_ROOT=$root`n", $utf8)
@@ -51,14 +57,13 @@ jobs:
           [System.IO.File]::AppendAllText($env:GITHUB_ENV,    "PKG_VERSION=$v`n", $utf8)
           [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "version=$v`n", $utf8)
           Write-Host "PKG_VERSION=$v"
-
       - name: 准备 .NET Framework 4.8 参考程序集
         shell: powershell
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $refs = Join-Path ${env:ProgramFiles(x86)} 'Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8'
           if (-not (Test-Path (Join-Path $refs 'mscorlib.dll'))) {
-            Write-Host '系统没有 v4.8 目标包，改用 NuGet 参考程序集包'
+            Write-Host 'No v4.8 targeting pack on this runner; downloading NuGet reference assemblies'
             $nupkg = Join-Path $env:RUNNER_TEMP 'net48refs.nupkg'
             $dir   = Join-Path $env:RUNNER_TEMP 'net48refs'
             Invoke-WebRequest -UseBasicParsing -Uri 'https://api.nuget.org/v3-flatcontainer/microsoft.netframework.referenceassemblies.net48/1.0.3/microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg' -OutFile $nupkg
@@ -66,7 +71,7 @@ jobs:
             [System.IO.Compression.ZipFile]::ExtractToDirectory($nupkg, $dir)
             $refs = Join-Path $dir 'build\.NETFramework\v4.8'
           }
-          if (-not (Test-Path (Join-Path $refs 'mscorlib.dll'))) { throw '无法获取 .NET Framework 4.8 参考程序集' }
+          if (-not (Test-Path (Join-Path $refs 'mscorlib.dll'))) { throw 'Failed to obtain the .NET Framework 4.8 reference assemblies' }
           [System.IO.File]::AppendAllText($env:GITHUB_ENV, "CODEX_REFS=$refs`n", (New-Object System.Text.UTF8Encoding($false)))
           Write-Host "CODEX_REFS=$refs"
 
@@ -81,7 +86,7 @@ jobs:
             foreach ($x in @($hit)) { if ($x) { $x = $x.Trim(); if (Test-Path $x) { $csc = $x; break } } }
           }
           if (-not $csc) {
-            Write-Host '没有 Visual Studio，改用 NuGet Roslyn 工具包'
+            Write-Host 'Visual Studio not found; downloading the NuGet Roslyn toolset'
             $nupkg = Join-Path $env:RUNNER_TEMP 'roslyn.nupkg'
             $dir   = Join-Path $env:RUNNER_TEMP 'roslyn'
             Invoke-WebRequest -UseBasicParsing -Uri 'https://api.nuget.org/v3-flatcontainer/microsoft.net.compilers.toolset/4.11.0/microsoft.net.compilers.toolset.4.11.0.nupkg' -OutFile $nupkg
@@ -89,16 +94,21 @@ jobs:
             [System.IO.Compression.ZipFile]::ExtractToDirectory($nupkg, $dir)
             $csc = Join-Path $dir 'tasks\net472\csc.exe'
           }
-          if (-not (Test-Path $csc)) { throw '无法获取 Roslyn csc.exe' }
+          if (-not (Test-Path $csc)) { throw 'Failed to obtain Roslyn csc.exe' }
           [System.IO.File]::AppendAllText($env:GITHUB_ENV, "CODEX_CSC=$csc`n", (New-Object System.Text.UTF8Encoding($false)))
           Write-Host "CODEX_CSC=$csc"
+
       - name: 探测 AutoCAD 托管程序集
         shell: powershell
         run: |
-          # 编译插件需要 AutoCAD 2024 的 acdbmgd/accoremgd/acmgd/AdWindows。
-          # 这些 DLL 有版权，不能随仓库分发，所以 GitHub 托管 runner 上通常找不到 ——
-          # 找不到就自动跳过编译，直接用仓库里 bundle\Contents\Windows 下已有的 DLL 打包。
-          # 想让 CI 真正编译：设环境变量 ACAD_DIR，或把 DLL 放到 refs\acad2024\，或用自建 runner。
+          # Compiling the plugin needs the AutoCAD 2024 managed assemblies
+          # (acdbmgd.dll, accoremgd.dll, acmgd.dll, AdWindows.dll).
+          # They are copyrighted and cannot be shipped with this repository, so a hosted
+          # runner normally has none. When they are missing we skip the compile and package
+          # the DLLs already committed under bundle\Contents\Windows\, which is exactly what
+          # a verified local build produced.
+          # To make CI compile from source: set ACAD_DIR, drop the DLLs into refs\acad2024\,
+          # or use a self-hosted runner.
           $acad = $null
           $cand = @()
           if ($env:ACAD_DIR) { $cand += $env:ACAD_DIR }
@@ -111,13 +121,12 @@ jobs:
           $skip = '1'
           if ($wantBuild -and $acad) { $skip = '0' }
           if ($skip -eq '0') {
-            Write-Host "找到 AutoCAD 程序集：$acad，将重新编译插件"
+            Write-Host "AutoCAD assemblies found at $acad - the plugin will be recompiled"
             [System.IO.File]::AppendAllText($env:GITHUB_ENV, "ACAD_DIR=$acad`n", (New-Object System.Text.UTF8Encoding($false)))
           } else {
-            Write-Host '::notice::未找到 AutoCAD 2024 程序集，跳过编译，使用仓库中已有的 DLL 打包'
+            Write-Host '::notice::AutoCAD 2024 assemblies not found - skipping the compile and packaging the DLLs already in the repository'
           }
           [System.IO.File]::AppendAllText($env:GITHUB_ENV, "SKIP_BUILD=$skip`n", (New-Object System.Text.UTF8Encoding($false)))
-
       - name: 打包（Setup.exe + zip + SHA256）
         shell: powershell
         run: |
@@ -125,11 +134,11 @@ jobs:
           if ($env:ACAD_DIR) { $mpArgs += @('-AcadDir', $env:ACAD_DIR) }
           if ($env:SKIP_BUILD -eq '1') { $mpArgs += '-SkipBuild' }
           & "$env:PROJECT_ROOT\package\make-package.ps1" @mpArgs
-          if (-not $?) { throw '打包脚本执行失败' }
+          if (-not $?) { throw 'make-package.ps1 failed' }
           $rel = Join-Path $env:PROJECT_ROOT 'release'
-          Get-ChildItem $rel -File | ForEach-Object { Write-Host ($_.Name + '  ' + $_.Length + ' 字节') }
-          if (-not (Test-Path (Join-Path $rel "CodexBlockLibrary-$env:PKG_VERSION-Setup.exe"))) { throw 'Setup.exe 未生成' }
-          if (-not (Test-Path (Join-Path $rel "CodexBlockLibrary-$env:PKG_VERSION.zip"))) { throw 'zip 未生成' }
+          Get-ChildItem $rel -File | ForEach-Object { Write-Host ($_.Name + '  ' + $_.Length + ' bytes') }
+          if (-not (Test-Path (Join-Path $rel "CodexBlockLibrary-$env:PKG_VERSION-Setup.exe"))) { throw 'Setup.exe was not generated' }
+          if (-not (Test-Path (Join-Path $rel "CodexBlockLibrary-$env:PKG_VERSION.zip"))) { throw 'the zip was not generated' }
 
       - name: 代码签名（可选）
         # 在仓库 Settings → Variables 里加 SIGN_ENABLED=true 才会执行；
@@ -142,14 +151,14 @@ jobs:
         run: |
           $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter 'signtool.exe' -ErrorAction SilentlyContinue |
                       Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $signtool) { throw '未找到 signtool.exe' }
+          if (-not $signtool) { throw 'signtool.exe not found' }
           $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
           [System.IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_PFX_BASE64))
           $rel = Join-Path $env:PROJECT_ROOT 'release'
           $exe = Join-Path $rel "CodexBlockLibrary-$env:PKG_VERSION-Setup.exe"
           & $signtool.FullName sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $pfx /p $env:SIGN_PFX_PASSWORD $exe
-          if ($LASTEXITCODE -ne 0) { throw "签名失败 (exit $LASTEXITCODE)" }
-          # 签名改变了文件内容，必须重算校验值
+          if ($LASTEXITCODE -ne 0) { throw "Signing failed (exit $LASTEXITCODE)" }
+          # Signing changes the bytes on disk, so the checksums have to be recomputed afterwards.
           $lines = New-Object System.Collections.Generic.List[string]
           foreach ($f in @($exe, (Join-Path $rel "CodexBlockLibrary-$env:PKG_VERSION.zip"))) {
             $lines.Add((Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash + '  ' + (Split-Path -Leaf $f))
@@ -180,11 +189,13 @@ jobs:
             (Join-Path $rel "CodexBlockLibrary-$env:PKG_VERSION.zip"),
             (Join-Path $rel 'SHA256SUMS.txt')
           )
+          $title = 'Codex Block Library ' + $tag
+          if ($env:RELEASE_TITLE_PREFIX) { $title = $env:RELEASE_TITLE_PREFIX + ' ' + $tag }
           gh release view $tag 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) {
-            Write-Host "Release $tag 已存在，覆盖上传"
+            Write-Host "Release $tag already exists - re-uploading the assets"
             gh release upload $tag @files --clobber
           } else {
-            gh release create $tag @files --title "Codex 图块库 $tag" --generate-notes
+            gh release create $tag @files --title $title --generate-notes
           }
-          if ($LASTEXITCODE -ne 0) { throw "创建 Release 失败 (exit $LASTEXITCODE)" }
+          if ($LASTEXITCODE -ne 0) { throw "Creating the release failed (exit $LASTEXITCODE)" }
