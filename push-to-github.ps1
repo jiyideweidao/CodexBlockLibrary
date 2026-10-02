@@ -5,7 +5,7 @@
   用法：
     & .\push-to-github.ps1                      # 建仓库 CodexBlockLibrary 并推送 main
     & .\push-to-github.ps1 -Repo 我的仓库名 -Private
-    & .\push-to-github.ps1 -Tag v1.0.6          # 推送后顺便打 tag，触发 CI 自动发版
+    & .\push-to-github.ps1 -Tag v1.0.7          # 推送后顺便打 tag，触发 CI 自动发版
 #>
 param(
   [string]$Repo = 'CodexBlockLibrary',
@@ -92,5 +92,5 @@ if ($Tag) {
 Write-Host ''
 Write-Host '完成。' -ForegroundColor Green
 if (-not $Tag) {
-  Write-Host '想发版就执行： .\push-to-github.ps1 -Tag v1.0.6' -ForegroundColor DarkGray
+  Write-Host '想发版就执行： .\push-to-github.ps1 -Tag v1.0.7' -ForegroundColor DarkGray
 }

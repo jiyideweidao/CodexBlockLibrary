@@ -521,7 +521,7 @@ namespace CodexBlockLib.UI
                 if (result == null || result.Blocks == null) continue;
                 foreach (BlockInfo info in result.Blocks)
                 {
-                    if (!info.IsDynamic) continue;   // 只收录动态块
+                    if (!info.IsDynamic) continue;   // 只收录多状态动态块
                     rows.Add(new BlockRow { Result = result, Info = info });
                 }
             }
@@ -530,7 +530,7 @@ namespace CodexBlockLib.UI
             RefreshStats();
             UpdatePauseButton();
             SetStatus("已载入 " + results.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸 / "
-                + rows.Count.ToString(CultureInfo.InvariantCulture) + " 个动态块定义", 0, 0);
+                + rows.Count.ToString(CultureInfo.InvariantCulture) + " 个多状态动态块（可见性状态≥2）", 0, 0);
         }
 
         private void RebuildTree()
@@ -542,7 +542,7 @@ namespace CodexBlockLib.UI
                 tree.Nodes.Clear();
 
                 var root = new TreeNode("块库");
-                var all = new TreeNode("全部动态块 (" + rows.Count.ToString(CultureInfo.InvariantCulture) + ")");
+                var all = new TreeNode("全部多状态动态块 (" + rows.Count.ToString(CultureInfo.InvariantCulture) + ")");
                 all.Tag = new string[] { "all", string.Empty };
                 root.Nodes.Add(all);
 
@@ -649,7 +649,7 @@ namespace CodexBlockLib.UI
 
             foreach (BlockRow row in rows)
             {
-                if (!row.Info.IsDynamic) continue;   // 只显示动态块
+                if (!row.Info.IsDynamic) continue;   // 只显示多状态动态块
                 if (!MatchFilter(row)) continue;
                 if (search.Length > 0 && !MatchSearch(row, search)) continue;
                 shown.Add(row);
@@ -1514,7 +1514,7 @@ namespace CodexBlockLib.UI
                 if (result.Ok) dynamicTotal += result.DynamicInstanceCount;
                 else failed++;
             }
-            SetStatus("扫描完成: " + results.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸, 动态块实例 "
+            SetStatus("扫描完成: " + results.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸, 多状态动态块实例 "
                 + dynamicTotal.ToString(CultureInfo.InvariantCulture) + " 个" + (failed > 0 ? ", 失败 " + failed.ToString(CultureInfo.InvariantCulture) + " 张" : ""), 0, 0);
             ReloadFromSession();
         }
@@ -1537,10 +1537,10 @@ namespace CodexBlockLib.UI
                 CategoryRules.Apply(result.Blocks, LibraryStore.Settings);
                 ScanSession.AddOrReplace(result);
                 ReloadFromSession();
-                Log.Write("已扫描当前图纸: " + label + " (动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
+                Log.Write("已扫描当前图纸: " + label + " (多状态动态块 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
                     + " 个, 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个)");
-                SetStatus("已扫描当前图纸 " + label + ": 动态块定义 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
-                    + " 个 / 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个（已加入块库）", 0, 0);
+                SetStatus("已扫描当前图纸 " + label + ": 多状态动态块 " + result.DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
+                    + " 个 / 实例 " + result.DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个（可见性状态≥2，已加入块库）", 0, 0);
             }
             catch (Exception ex)
             {
@@ -1563,7 +1563,7 @@ namespace CodexBlockLib.UI
             {
                 statsGrid.Rows.Clear();
                 statsGrid.Columns.Clear();
-                string[] headers = new string[] { "图纸", "格式", "动态块定义", "动态块实例", "单位", "布局", "模型图元", "用时(s)", "状态" };
+                string[] headers = new string[] { "图纸", "格式", "多状态动态块", "动态块实例", "单位", "布局", "模型图元", "用时(s)", "状态" };
                 foreach (string header in headers) statsGrid.Columns.Add(header, header);
 
                 int dynamicDefinitions = 0, dynamicInstances = 0;

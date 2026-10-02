@@ -27,7 +27,7 @@ namespace CodexBlockLib.Core
             sb.AppendLine("Codex 图块库统计,生成时间," + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
             sb.AppendLine();
             sb.AppendLine("汇总");
-            sb.AppendLine("来源,格式,动态块定义,动态块实例,单位,布局数,图元数(模型),扫描用时(秒),状态");
+            sb.AppendLine("来源,格式,多状态动态块,动态块实例,单位,布局数,图元数(模型),扫描用时(秒),状态");
 
             int files = results.Count;
             int dynDef = 0, dynIns = 0;
@@ -128,7 +128,7 @@ namespace CodexBlockLib.Core
                 dynDef += result.DynamicDefinitionCount;
                 dynIns += result.DynamicInstanceCount;
             }
-            sb.AppendLine("合计: " + results.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸, 动态块定义 "
+            sb.AppendLine("合计: " + results.Count.ToString(CultureInfo.InvariantCulture) + " 张图纸, 多状态动态块（可见性状态≥2）"
                 + dynDef.ToString(CultureInfo.InvariantCulture) + " 个, 动态块实例 " + dynIns.ToString(CultureInfo.InvariantCulture) + " 个");
 
             if (topDynamic > 0)
@@ -142,7 +142,7 @@ namespace CodexBlockLib.Core
                 all.Sort(delegate(BlockInfo a, BlockInfo b) { return b.InstanceCount.CompareTo(a.InstanceCount); });
                 if (all.Count > 0)
                 {
-                    sb.AppendLine("动态块明细（按实例数）:");
+                    sb.AppendLine("多状态动态块明细（按实例数，可见性状态≥2）:");
                     for (int i = 0; i < all.Count && i < topDynamic; i++)
                     {
                         BlockInfo info = all[i];

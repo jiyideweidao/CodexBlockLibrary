@@ -197,6 +197,7 @@ namespace CodexBlockLib.Core
     public sealed class ScanOptions
     {
         public bool DynamicOnly = true;   // 只收录并统计动态块，其它块不列表也不统计
+        public int MinVisibilityStates = 2;   // 只收录可见性状态数达到该值的动态块（0 = 不限制）
         public bool CountNested = true;
         public bool ReadProperties = true;
         public int MaxPropertyReadsPerBlock = 60;
@@ -243,6 +244,7 @@ namespace CodexBlockLib.Core
         public int LayoutCount;
         public int AnonymousSkipped;
         public int UnknownRefs;
+        public int VisibilityFiltered;   // 因可见性状态数不足被过滤掉的动态块定义数
 
         public DateTime ScanTime = DateTime.Now;
         public double ScanSeconds;
@@ -319,8 +321,9 @@ namespace CodexBlockLib.Core
         {
             if (!Ok) return DisplayName + " => 打开失败: " + Error;
             return DisplayName
-                + " | 动态块定义 " + DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
+                + " | 多状态动态块 " + DynamicDefinitionCount.ToString(CultureInfo.InvariantCulture)
                 + " 个 / 实例 " + DynamicInstanceCount.ToString(CultureInfo.InvariantCulture) + " 个"
+                + (VisibilityFiltered > 0 ? "（已过滤 " + VisibilityFiltered.ToString(CultureInfo.InvariantCulture) + " 个单状态动态块）" : string.Empty)
                 + " | 单位 " + InsUnitsName
                 + " | 耗时 " + ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + "s";
         }

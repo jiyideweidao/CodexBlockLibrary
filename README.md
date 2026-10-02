@@ -3,10 +3,21 @@
 扫描其它 `dwg / dwt / dws / dxf` 图纸中的图块，统计**动态块**数量，按**分类 / 标签**管理，
 并把任意图块**复制 / 插入到当前正在绘制的图纸**。
 
-- 版本：1.0.6
+- 版本：1.0.7
 - 目标平台：AutoCAD 2024（R24.3，简体中文）+ .NET Framework 4.8
 - 已安装位置（用户级，无需管理员）：
   `%APPDATA%\Autodesk\ApplicationPlugins\CodexBlockLibrary.bundle`
+
+## 许可
+
+本软件为**商业专有软件**，不是开源项目。
+
+- 完整条款见 [LICENSE.txt](LICENSE.txt)（中文 + English）。
+- 免费版可免费使用；个人版 / 专业版 / 团队版需取得授权密钥，按设备数授权（1 / 2 / 5 台）。
+- 禁止反向工程、再分发、转售，禁止绕过或篡改授权校验。
+- 本软件**不采集、不上传**图纸、图层名、项目信息或使用数据；除激活校验外全部在本机完成。
+- Autodesk、AutoCAD 是 Autodesk, Inc. 的注册商标。本插件为独立第三方作品，与 Autodesk 无隶属、赞助或背书关系。
+- 安装包与 GitHub Release 附件中应一并附带 `LICENSE.txt`。
 
 ## 一、安装 / 卸载
 
@@ -225,14 +236,14 @@ AutoCAD 命令行执行 `BLKSELFTEST`：
 
 | 文件 | 大小 | 用途 |
 | --- | --- | --- |
-| `CodexBlockLibrary-1.0.6-Setup.exe` | ~106 KB | 单文件安装程序，内嵌整个插件包，双击即可用 |
-| `CodexBlockLibrary-1.0.6.zip` | ~184 KB | 便携包：插件包 + 安装/卸载脚本 + 文档（含同一份 Setup.exe） |
+| `CodexBlockLibrary-1.0.7-Setup.exe` | ~106 KB | 单文件安装程序，内嵌整个插件包，双击即可用 |
+| `CodexBlockLibrary-1.0.7.zip` | ~184 KB | 便携包：插件包 + 安装/卸载脚本 + 文档（含同一份 Setup.exe） |
 | `SHA256SUMS.txt` | — | 上面两个文件的 SHA256 校验值 |
 
 别人拿到的分发包里包含：
 
 ```
-CodexBlockLibrary-1.0.6\
+CodexBlockLibrary-1.0.7\
 ├─ Setup.exe               单文件安装程序（推荐）
 ├─ install.cmd             双击安装（当前用户，不需要管理员）
 ├─ install-allusers.cmd    双击安装（所有用户，会弹 UAC）
@@ -286,7 +297,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\uninstall.ps1 -KeepConfig
 ### 校验下载文件
 
 ```powershell
-Get-FileHash .\CodexBlockLibrary-1.0.6-Setup.exe -Algorithm SHA256
+Get-FileHash .\CodexBlockLibrary-1.0.7-Setup.exe -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 
@@ -317,10 +328,10 @@ $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse 
 & $signtool.FullName sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
     /f mycert.pfx /p <证书密码> `
     /d "Codex 图块库 AutoCAD 插件" `
-    .\CodexBlockLibrary-1.0.6-Setup.exe
+    .\CodexBlockLibrary-1.0.7-Setup.exe
 
 # 验证
-Get-AuthenticodeSignature .\CodexBlockLibrary-1.0.6-Setup.exe | Format-List Status, SignerCertificate
+Get-AuthenticodeSignature .\CodexBlockLibrary-1.0.7-Setup.exe | Format-List Status, SignerCertificate
 ```
 
 `Status` 显示 `Valid` 即成功。注意：**签名会改变文件内容，签完必须重算 `SHA256SUMS.txt`**，
@@ -341,7 +352,7 @@ Export-PfxCertificate  -Cert $cert -FilePath mycert.pfx -Password $pwd
 Export-Certificate     -Cert $cert -FilePath mycert.cer
 
 # 3) 对 Setup.exe 签名
-& $signtool.FullName sign /fd SHA256 /f mycert.pfx /p '你的密码' .\CodexBlockLibrary-1.0.6-Setup.exe
+& $signtool.FullName sign /fd SHA256 /f mycert.pfx /p '你的密码' .\CodexBlockLibrary-1.0.7-Setup.exe
 ```
 
 自签名证书默认**不被信任**，用户要先把它装进“受信任的根证书颁发机构”才不会再报警：
@@ -368,7 +379,7 @@ Import-Certificate -FilePath .\mycert.cer -CertStoreLocation Cert:\LocalMachine\
 
 **触发方式**
 
-- 打 tag 推送即自动发布：`git tag v1.0.6 && git push origin v1.0.6`
+- 打 tag 推送即自动发布：`git tag v1.0.7 && git push origin v1.0.7`
 - 或在 Actions 页面手动 `Run workflow`，可填版本号、可勾选“跳过编译”
 
 **流程**
@@ -400,21 +411,29 @@ Import-Certificate -FilePath .\mycert.cer -CertStoreLocation Cert:\LocalMachine\
 cd "...\CodexBlockLibrary"
 git init
 git add .
-git commit -m "Codex 图块库 1.0.6"
+git commit -m "Codex 图块库 1.0.7"
 git remote add origin https://github.com/<你的账号>/CodexBlockLibrary.git
 git push -u origin main
-git tag v1.0.6
-git push origin v1.0.6        # 打完 tag 就会自动出一个 Release
+git tag v1.0.7
+git push origin v1.0.7        # 打完 tag 就会自动出一个 Release
 ```
 
 **本地复现 CI 的打包（不编译）**
 
 ```powershell
-& .\package\make-package.ps1 -SkipBuild -Version 1.0.6
+& .\package\make-package.ps1 -SkipBuild -Version 1.0.7
 ```
 
 
 ## 十三、更新日志
+
+**1.0.7**
+
+- 扫描时按**可见性状态数**过滤：只收录可见性状态 ≥ 2 个的动态块，参与统计与分类；
+  单状态动态块（只有拉伸 / 翻转 / 查寻等参数、没有可选状态）**既不显示也不计数**。
+- 面板状态栏、统计表、导出 CSV、命令行摘要统一改为「多状态动态块（可见性状态≥2）」口径，
+  并在状态栏与日志中给出被过滤掉的数量。
+- 设置新增「只收可见性状态数≥（0=不限）」：默认 2（即上述行为），填 0 可关闭过滤、恢复列出全部动态块。
 
 **1.0.6**
 

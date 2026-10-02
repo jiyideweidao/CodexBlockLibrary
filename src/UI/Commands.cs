@@ -211,7 +211,7 @@ namespace CodexBlockLib.UI
                         instanceTotal += info.InstanceCount;
                     }
                 }
-                Log.Write("扫描任务完成: 图纸 " + files.Count.ToString(CultureInfo.InvariantCulture) + " 张, 动态块定义 " + dynamicTotal.ToString(CultureInfo.InvariantCulture) + " 个, 参照 " + instanceTotal.ToString(CultureInfo.InvariantCulture) + " 处");
+                Log.Write("扫描任务完成: 图纸 " + files.Count.ToString(CultureInfo.InvariantCulture) + " 张, 多状态动态块（可见性状态≥2） " + dynamicTotal.ToString(CultureInfo.InvariantCulture) + " 个, 参照 " + instanceTotal.ToString(CultureInfo.InvariantCulture) + " 处");
 
                 Write(ReportWriter.SummaryText(results, 15));
                 Write("提示: 输入 BLKLIB 打开块库面板查看/插入；输入 BLKSTATS 导出统计表。");
@@ -223,7 +223,7 @@ namespace CodexBlockLib.UI
             }
         }
 
-        /// <summary>扫描“当前打开的图纸”，把它的图块加入块库，并打印动态块统计（可选导出 CSV）。</summary>
+        /// <summary>扫描“当前打开的图纸”，把它的多状态动态块加入块库，并打印统计（可选导出 CSV）。</summary>
         [CommandMethod("BLKCOUNT", CommandFlags.Modal)]
         public static void CountDynamicBlocks()
         {

@@ -33,6 +33,7 @@ namespace CodexBlockLib.Core
         public bool AutoScaleByUnits = true;
         public bool KeepSourceRotation;
         public bool CountNested = true;
+        public int MinVisibilityStates = 2;   // 只收录可见性状态数达到该值的动态块（0 = 不限制）
         public int MaxPropertyReadsPerBlock = 60;
         public bool RibbonEnabled = true;
         public bool MenuBarEnabled = true;
@@ -48,6 +49,7 @@ namespace CodexBlockLib.Core
             var options = new ScanOptions();
             options.CountNested = CountNested;
             options.DynamicOnly = true;
+            options.MinVisibilityStates = MinVisibilityStates > 0 ? MinVisibilityStates : 0;
             options.MaxPropertyReadsPerBlock = MaxPropertyReadsPerBlock > 0 ? MaxPropertyReadsPerBlock : 60;
             options.BuildThumbnails = true;
             options.MaxThumbnailsPerFile = MaxThumbnailsPerFile > 0 ? MaxThumbnailsPerFile : 400;

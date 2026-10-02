@@ -63,7 +63,7 @@ namespace CodexBlockLib.Core
 
             result.ScanSeconds = watch.Elapsed.TotalSeconds;
             result.ScanTime = DateTime.Now;
-            Log.Write("已扫描 " + result.Label + ": 动态块定义 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个, 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
+            Log.Write("已扫描 " + result.Label + ": 多状态动态块 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个" + (result.VisibilityFiltered > 0 ? "（过滤 " + result.VisibilityFiltered.ToString(CultureInfo.InvariantCulture) + " 个单状态块）" : string.Empty) + ", 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
             return result;
         }
 
@@ -96,7 +96,7 @@ namespace CodexBlockLib.Core
             }
             result.ScanSeconds = watch.Elapsed.TotalSeconds;
             result.ScanTime = DateTime.Now;
-            Log.Write("已扫描 " + result.Label + ": 动态块定义 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个, 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
+            Log.Write("已扫描 " + result.Label + ": 多状态动态块 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture) + " 个" + (result.VisibilityFiltered > 0 ? "（过滤 " + result.VisibilityFiltered.ToString(CultureInfo.InvariantCulture) + " 个单状态块）" : string.Empty) + ", 用时 " + result.ScanSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " 秒");
             return result;
         }
 
@@ -299,7 +299,8 @@ namespace CodexBlockLib.Core
                             }
                             catch { }
 
-                            if (options.ReadProperties && info.PropertyReadCount < options.MaxPropertyReadsPerBlock)
+                            if ((options.ReadProperties || options.MinVisibilityStates > 0)
+                                && info.PropertyReadCount < options.MaxPropertyReadsPerBlock)
                             {
                                 info.PropertyReadCount++;
                                 ReadDynamicProperties(reference, info);
@@ -324,6 +325,9 @@ namespace CodexBlockLib.Core
                 tr.Commit();
             }
 
+            // 收尾：按可见性状态数过滤（只保留多状态动态块）
+            if (options.MinVisibilityStates > 0) ApplyVisibilityFilter(result, options);
+
             // 收尾：把定义内部的图层信息补进统计（用于按图层分类）
             foreach (BlockInfo info in result.Blocks)
             {
@@ -334,6 +338,30 @@ namespace CodexBlockLib.Core
             }
         }
 
+        /// <summary>
+        /// 只保留可见性状态数达到阈值的动态块（默认 ≥2）：其余既不进列表、也不计入统计。
+        /// 状态数取自动态块参照的可见性参数允许值；图纸里没有任何参照的定义无法判定，一并过滤。
+        /// </summary>
+        private static void ApplyVisibilityFilter(FileScanResult result, ScanOptions options)
+        {
+            var removed = new List<BlockInfo>();
+            foreach (BlockInfo info in result.Blocks)
+            {
+                if (info == null) continue;
+                if (!info.IsDynamic) { removed.Add(info); continue; }
+                if (info.VisibilityStates.Count < options.MinVisibilityStates) removed.Add(info);
+            }
+            if (removed.Count == 0) return;
+            foreach (BlockInfo info in removed)
+            {
+                result.Blocks.Remove(info);
+                if (!string.IsNullOrEmpty(info.Name)) result.DefinitionIds.Remove(info.Name);
+                result.VisibilityFiltered++;
+            }
+            Log.Write("可见性状态过滤：保留 " + result.Blocks.Count.ToString(CultureInfo.InvariantCulture)
+                + " 个（状态数≥" + options.MinVisibilityStates.ToString(CultureInfo.InvariantCulture) + "），过滤掉 "
+                + removed.Count.ToString(CultureInfo.InvariantCulture) + " 个");
+        }
         private static bool IsModelSpace(string layoutName, BlockTableRecord owner)
         {
             if (!string.IsNullOrEmpty(layoutName))

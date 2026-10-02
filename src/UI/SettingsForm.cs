@@ -64,6 +64,7 @@ namespace CodexBlockLib.UI
         private NumericUpDown thumbSize;
         private NumericUpDown maxThumbs;
         private NumericUpDown maxProps;
+        private NumericUpDown minVisStates;
         private CheckBox autoScale;
         private CheckBox countNested;
         private CheckBox ribbonEnabled;
@@ -87,7 +88,7 @@ namespace CodexBlockLib.UI
             StartPosition = FormStartPosition.CenterScreen;
             MinimizeBox = false;
             MaximizeBox = false;
-            ClientSize = new Size(760, 646);
+            ClientSize = new Size(760, 674);
             Font = new Font("Microsoft YaHei", 9F, FontStyle.Regular, GraphicsUnit.Point);
             BackColor = Color.FromArgb(246, 247, 249);
 
@@ -110,12 +111,13 @@ namespace CodexBlockLib.UI
             var scanGroup = new GroupBox();
             scanGroup.Text = "统计与缩略图";
             scanGroup.Location = new Point(12, 88);
-            scanGroup.Size = new Size(736, 110);
+            scanGroup.Size = new Size(736, 138);
             autoScale = MakeCheck("按图纸单位自动换算插入比例", 16, 24);
             countNested = MakeCheck("统计嵌套在其它块内的参照", 16, 50);
             thumbSize = MakeNumeric("缩略图尺寸(px)", 380, 22, 32, 256, 16);
             maxThumbs = MakeNumeric("每张图纸缩略图上限", 380, 50, 0, 5000, 50);
             maxProps = MakeNumeric("动态块参数读取上限", 380, 78, 0, 5000, 10);
+            minVisStates = MakeNumeric("只收可见性状态数≥（0=不限）", 16, 106, 0, 5000, 1);
             scanGroup.Controls.Add(autoScale);
             scanGroup.Controls.Add(countNested);
             scanGroup.Controls.Add(thumbSize);
@@ -124,10 +126,12 @@ namespace CodexBlockLib.UI
             scanGroup.Controls.Add((Control)maxThumbs.Tag);
             scanGroup.Controls.Add(maxProps);
             scanGroup.Controls.Add((Control)maxProps.Tag);
+            scanGroup.Controls.Add(minVisStates);
+            scanGroup.Controls.Add((Control)minVisStates.Tag);
 
             var uiGroup = new GroupBox();
             uiGroup.Text = "CAD 界面（重新启动 AutoCAD 后完全生效）";
-            uiGroup.Location = new Point(12, 206);
+            uiGroup.Location = new Point(12, 234);
             uiGroup.Size = new Size(736, 112);
             ribbonEnabled = MakeCheck("在功能区创建“块库”选项卡", 16, 24);
             menuBarEnabled = MakeCheck("在经典菜单栏创建“块库”下拉菜单", 16, 50);
@@ -141,7 +145,7 @@ namespace CodexBlockLib.UI
 
             var ruleGroup = new GroupBox();
             ruleGroup.Text = "自定义分类规则（分类方式选择“按自定义规则”时生效，从上到下匹配）";
-            ruleGroup.Location = new Point(12, 326);
+            ruleGroup.Location = new Point(12, 354);
             ruleGroup.Size = new Size(736, 240);
             rulesGrid = new DataGridView();
             rulesGrid.Location = new Point(14, 24);
@@ -165,26 +169,26 @@ namespace CodexBlockLib.UI
 
             var saveButton = new Button();
             saveButton.Text = "保存";
-            saveButton.Location = new Point(470, 578);
+            saveButton.Location = new Point(470, 606);
             saveButton.Size = new Size(84, 30);
             saveButton.Click += delegate { SaveAndClose(); };
             var cancelButton = new Button();
             cancelButton.Text = "取消";
-            cancelButton.Location = new Point(562, 578);
+            cancelButton.Location = new Point(562, 606);
             cancelButton.Size = new Size(84, 30);
             cancelButton.DialogResult = DialogResult.Cancel;
             var openFolderButton = new Button();
             openFolderButton.Text = "打开配置目录";
-            openFolderButton.Location = new Point(12, 578);
+            openFolderButton.Location = new Point(12, 606);
             openFolderButton.Size = new Size(120, 30);
             openFolderButton.Click += delegate { OpenConfigFolder(); };
             var clearCacheButton = new Button();
             clearCacheButton.Text = "清理缩略图缓存";
-            clearCacheButton.Location = new Point(140, 578);
+            clearCacheButton.Location = new Point(140, 606);
             clearCacheButton.Size = new Size(130, 30);
             clearCacheButton.Click += delegate { ClearCache(); };
             cacheLabel = new Label();
-            cacheLabel.Location = new Point(280, 584);
+            cacheLabel.Location = new Point(280, 612);
             cacheLabel.AutoSize = true;
 
             Controls.Add(categoryGroup);
@@ -259,6 +263,9 @@ namespace CodexBlockLib.UI
             decimal maxProperty = settings.MaxPropertyReadsPerBlock >= 0 ? settings.MaxPropertyReadsPerBlock : 60;
             if (maxProperty > maxProps.Maximum) maxProperty = maxProps.Maximum;
             maxProps.Value = maxProperty;
+            decimal minVis = settings.MinVisibilityStates > 0 ? settings.MinVisibilityStates : 0;
+            if (minVis > minVisStates.Maximum) minVis = minVisStates.Maximum;
+            minVisStates.Value = minVis;
 
             try
             {
@@ -300,6 +307,7 @@ namespace CodexBlockLib.UI
                 settings.ThumbSize = (int)thumbSize.Value;
                 settings.MaxThumbnailsPerFile = (int)maxThumbs.Value;
                 settings.MaxPropertyReadsPerBlock = (int)maxProps.Value;
+                settings.MinVisibilityStates = (int)minVisStates.Value;
 
                 settings.Rules.Clear();
                 foreach (DataGridViewRow row in rulesGrid.Rows)

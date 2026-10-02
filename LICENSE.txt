@@ -1,0 +1,173 @@
+# Codex 图块库（Codex Block Library）最终用户许可协议
+# End User License Agreement (EULA)
+
+版本 1.0 ｜ 生效日期：2026-10-02
+
+**重要提示**：本协议是您与许可方之间关于 Codex 图块库软件的法律协议。安装、复制或以其他方式使用本软件，即表示您接受本协议全部条款。如不同意，请勿安装或使用，并删除全部副本。
+
+---
+
+## 一、定义
+
+1.1 **"本软件"** 指 Codex 图块库（Codex Block Library），包括其安装程序、程序集、配置文件、文档及后续更新。
+1.2 **"许可方"** 指本软件的著作权人。
+1.3 **"您"** 指接受本协议并使用本软件的自然人或法人。
+1.4 **"授权密钥"** 指许可方签发的激活码、卡密或授权文件。
+
+## 二、授权范围
+
+2.1 **免费版**：许可方授予您非独占、不可转让的许可，可在您拥有或控制的设备上安装并使用免费版，功能范围以软件内说明为准。
+
+2.2 **付费版**：在您通过许可方或其授权渠道取得有效授权密钥后，许可方授予您非独占、不可转让的许可：
+
+- **个人版**：可在 1 台设备上安装使用；
+- **专业版**：可在 2 台设备上安装使用；
+- **团队版**：可在 5 台设备上安装使用。
+
+设备数以上限为准。同一设备更换硬件或重装系统不额外计数，但需重新激活。
+
+2.3 企业采购、超过团队版授权数的部署、或把本软件集成到对外提供的服务中，须另行取得书面授权。
+
+## 三、限制
+
+您不得：
+
+(a) 对本软件进行反向工程、反编译、反汇编，或以其他方式试图获取源代码，但法律明确允许的除外；
+(b) 修改、翻译、演绎本软件，或制作衍生作品；
+(c) 复制、分发、出租、出借、转售、转授权本软件或授权密钥；
+(d) 移除、遮蔽或篡改本软件中的著作权声明、许可提示或激活机制；
+(e) 绕过、破解或以其他方式规避授权校验；
+(f) 将本软件用于违反适用法律法规的活动。
+
+## 四、第三方组件与商标声明
+
+4.1 本软件通过 Autodesk 提供的 .NET API 与 AutoCAD 交互，运行需要您自行合法取得并安装 AutoCAD。
+4.2 Autodesk、AutoCAD 是 Autodesk, Inc. 的注册商标。本软件为独立第三方插件，与 Autodesk 公司无隶属、赞助、背书或代理关系。
+4.3 本软件的安装包不包含 Autodesk 的任何 DLL 或组件，相关组件由您本地已安装的 AutoCAD 提供。
+
+## 五、数据与隐私
+
+5.1 本软件不采集、不上传您的图纸、图层名、项目信息或任何使用数据。
+5.2 本软件的图纸读写全部在您的本机完成。
+5.3 激活校验可能需要联网，此时仅传输授权密钥与设备标识，用于验证授权有效性。
+5.4 采用离线激活方式时，本软件不进行任何网络通信。
+
+## 六、免责声明
+
+6.1 本软件按"现状"提供，不附带任何明示或默示的担保，包括但不限于适销性、特定用途适用性和不侵权的担保。
+6.2 许可方不担保本软件无错误、不中断，或能与其他软件、插件、AutoCAD 版本兼容。
+6.3 您应自行备份图纸文件。因使用或无法使用本软件导致的图纸损坏、数据丢失、工期延误或其他损失，许可方不承担责任。
+
+## 七、责任限制
+
+7.1 在适用法律允许的最大范围内，许可方对您的全部赔偿责任，累计不超过您就本软件实际支付的价款。
+7.2 许可方不对任何间接、附带、特殊、惩罚性或后果性损害承担责任，包括利润损失、数据丢失、业务中断。
+
+## 八、更新与支持
+
+8.1 1.x 版本内的更新免费提供。
+8.2 支持范围与响应时限按您购买的版本及购买渠道说明执行。
+8.3 许可方保留随时修改、暂停或终止本软件及任何功能的权利。
+
+## 九、终止
+
+9.1 您违反本协议任一条款，授权自动终止，无需另行通知。
+9.2 授权终止后，您应立即停止使用并删除本软件的全部副本。
+
+## 十、适用法律与争议解决
+
+10.1 本协议适用中华人民共和国法律。
+10.2 因本协议产生的争议，双方应友好协商解决；协商不成的，提交许可方所在地有管辖权的人民法院。
+
+## 十一、其他
+
+11.1 本协议构成双方就本软件的完整约定，取代此前的任何口头或书面沟通。
+11.2 本协议部分条款被认定无效的，不影响其余条款的效力。
+11.3 联系方式：<你的邮箱>
+
+---
+---
+
+# End User License Agreement (English)
+
+Version 1.0 | Effective date: 2026-10-02
+
+IMPORTANT: This is a legal agreement between you and the Licensor concerning the Codex Block Library software. By installing, copying, or otherwise using the Software, you accept all terms of this Agreement. If you do not agree, do not install or use the Software and delete all copies.
+
+## 1. Definitions
+
+1.1 "Software" means Codex Block Library, including its installer, assemblies, configuration files, documentation, and any subsequent updates.
+1.2 "Licensor" means the copyright holder of the Software.
+1.3 "You" means the individual or legal entity accepting this Agreement.
+1.4 "License Key" means an activation code, card key, or license file issued by the Licensor.
+
+## 2. Grant of License
+
+2.1 Free Edition: The Licensor grants you a non-exclusive, non-transferable license to install and use the Free Edition on devices you own or control, with the feature set described in the Software.
+
+2.2 Paid Editions: Upon obtaining a valid License Key from the Licensor or its authorized channels, the Licensor grants you a non-exclusive, non-transferable license to install and use the Software on:
+
+- Personal Edition: 1 device;
+- Pro Edition: 2 devices;
+- Team Edition: 5 devices.
+
+Reinstalling on the same device after a hardware change or OS reinstall does not count as an additional device, but reactivation is required.
+
+2.3 Enterprise procurement, deployments exceeding the Team Edition device limit, or integration of the Software into services provided to third parties require separate written authorization.
+
+## 3. Restrictions
+
+You may not:
+
+(a) reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code of the Software, except to the extent expressly permitted by applicable law;
+(b) modify, translate, adapt, or create derivative works of the Software;
+(c) copy, distribute, rent, lease, resell, or sublicense the Software or any License Key;
+(d) remove, obscure, or alter any copyright notice, license notice, or activation mechanism in the Software;
+(e) bypass, crack, or otherwise circumvent license verification;
+(f) use the Software in violation of any applicable law or regulation.
+
+## 4. Third-Party Components and Trademarks
+
+4.1 The Software interacts with AutoCAD through the .NET API provided by Autodesk. You must independently obtain and install AutoCAD in order to use the Software.
+4.2 Autodesk and AutoCAD are registered trademarks of Autodesk, Inc. This Software is an independent third-party add-in and is not affiliated with, sponsored by, endorsed by, or acting as an agent of Autodesk, Inc.
+4.3 The Software installer contains no Autodesk DLLs or components. Such components are supplied by your locally installed AutoCAD.
+
+## 5. Data and Privacy
+
+5.1 The Software does not collect or upload your drawings, layer names, project information, or any usage data.
+5.2 All drawing file access is performed locally on your machine.
+5.3 Activation may require network access, in which case only the License Key and a device identifier are transmitted, solely to validate the license.
+5.4 Under offline activation, the Software performs no network communication.
+
+## 6. Disclaimer of Warranty
+
+6.1 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+6.2 The Licensor does not warrant that the Software will be error-free, uninterrupted, or compatible with other software, add-ins, or AutoCAD versions.
+6.3 You are responsible for backing up your drawing files. The Licensor is not liable for drawing corruption, data loss, project delays, or other damages arising from the use of, or inability to use, the Software.
+
+## 7. Limitation of Liability
+
+7.1 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR TOTAL AGGREGATE LIABILITY TO YOU SHALL NOT EXCEED THE AMOUNT YOU ACTUALLY PAID FOR THE SOFTWARE.
+7.2 THE LICENSOR SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, LOSS OF DATA, OR BUSINESS INTERRUPTION.
+
+## 8. Updates and Support
+
+8.1 Updates within the 1.x version series are provided free of charge.
+8.2 Support scope and response times are governed by the edition you purchased and the terms of your purchase channel.
+8.3 The Licensor reserves the right to modify, suspend, or discontinue the Software or any feature at any time.
+
+## 9. Termination
+
+9.1 Your license terminates automatically, without notice, if you breach any term of this Agreement.
+9.2 Upon termination, you must immediately cease use and delete all copies of the Software.
+
+## 10. Governing Law and Dispute Resolution
+
+10.1 This Agreement is governed by the laws of the People Republic of China.
+10.2 Disputes arising from this Agreement shall be resolved through friendly negotiation; failing that, they shall be submitted to the competent people court in the Licensor place of domicile.
+
+## 11. Miscellaneous
+
+11.1 This Agreement constitutes the entire agreement between the parties concerning the Software and supersedes all prior oral or written communications.
+11.2 If any provision is held invalid, the remaining provisions remain in full force.
+11.3 Contact: <your email>

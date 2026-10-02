@@ -130,9 +130,13 @@ jobs:
       - name: 打包（Setup.exe + zip + SHA256）
         shell: powershell
         run: |
-          $mpArgs = @('-Version', $env:PKG_VERSION, '-Refs', $env:CODEX_REFS, '-Csc', $env:CODEX_CSC)
-          if ($env:ACAD_DIR) { $mpArgs += @('-AcadDir', $env:ACAD_DIR) }
-          if ($env:SKIP_BUILD -eq '1') { $mpArgs += '-SkipBuild' }
+          # Splat a hashtable here: splatting an array mis-binds named switches,
+          # and the earlier array form handed csc the literal string "-Refs".
+          # The reference assemblies and the compiler can also come from the
+          # CODEX_REFS / CODEX_CSC / ACAD_DIR environment variables.
+          $mpArgs = @{ Version = $env:PKG_VERSION }
+          if ($env:ACAD_DIR) { $mpArgs['AcadDir'] = $env:ACAD_DIR }
+          if ($env:SKIP_BUILD -eq '1') { $mpArgs['SkipBuild'] = $true }
           & "$env:PROJECT_ROOT\package\make-package.ps1" @mpArgs
           if (-not $?) { throw 'make-package.ps1 failed' }
           $rel = Join-Path $env:PROJECT_ROOT 'release'

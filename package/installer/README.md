@@ -1,4 +1,4 @@
-﻿# Codex 图块库（CodexBlockLibrary）v1.0.6
+﻿# Codex 图块库（CodexBlockLibrary）v1.0.7
 
 AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，按**分类 / 标签**管理，
 并把任意图块（含动态参数）**复制 / 插入到当前正在绘制的图纸**中。
@@ -30,7 +30,7 @@ AutoCAD 插件：扫描其它图纸里的图块，统计**动态块**数量，�
 
 **方式二：脚本安装（便携包）**
 
-1. 把 `CodexBlockLibrary-1.0.6.zip` **完整解压**到任意目录（不要在压缩包里直接双击）。
+1. 把 `CodexBlockLibrary-1.0.7.zip` **完整解压**到任意目录（不要在压缩包里直接双击）。
 2. 双击 **`install.cmd`**（装给当前用户，不弹 UAC）；
    要让本机所有用户都能用，改双击 **`install-allusers.cmd`**（会弹 UAC）。
 3. 装完同样重启 AutoCAD。
@@ -146,7 +146,7 @@ A：`PackageContents.xml` 声明的最低版本是 **R24.0（AutoCAD 2024）**�
 ## 六、目录结构
 
 ```
-CodexBlockLibrary-1.0.6\
+CodexBlockLibrary-1.0.7\
 ├─ Setup.exe              一键安装 / 卸载（推荐，双击运行）
 ├─ install.cmd            双击安装（当前用户）
 ├─ install-allusers.cmd   双击安装（所有用户，需 UAC）
