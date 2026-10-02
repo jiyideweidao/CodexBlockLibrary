@@ -186,6 +186,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # The runner prepends $ErrorActionPreference = 'stop' to this script, so native stderr
+          # (for example gh's "release not found") would abort the step - keep it non-terminating here.
+          $ErrorActionPreference = 'Continue'
           $tag = '${{ github.ref_name }}'
           $rel = Join-Path $env:PROJECT_ROOT 'release'
           $files = @(
@@ -195,7 +198,7 @@ jobs:
           )
           $title = 'Codex Block Library ' + $tag
           if ($env:RELEASE_TITLE_PREFIX) { $title = $env:RELEASE_TITLE_PREFIX + ' ' + $tag }
-          gh release view $tag 2>$null | Out-Null
+          gh release view $tag 2>&1 | Out-Null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release $tag already exists - re-uploading the assets"
             gh release upload $tag @files --clobber
