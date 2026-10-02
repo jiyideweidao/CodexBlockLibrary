@@ -34,6 +34,13 @@ namespace CodexBlockLib.Core
             return ContainsParameterOrAction(record);
         }
 
+        /// <summary>是否是动态块的可见性参数（AcDbBlockVisibilityParameter）。</summary>
+        public static bool IsVisibilityParameterClass(string className)
+        {
+            if (string.IsNullOrEmpty(className)) return false;
+            return className.IndexOf("VisibilityParameter", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         public static bool ContainsParameterOrAction(BlockTableRecord record)
         {
             int scanned = 0;

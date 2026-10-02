@@ -348,7 +348,7 @@ namespace CodexBlockLib.Core
             foreach (BlockInfo info in result.Blocks)
             {
                 if (info == null) continue;
-                if (!info.IsDynamic) { removed.Add(info); continue; }
+                if (!info.IsDynamic || !info.HasVisibilityParameter) { removed.Add(info); continue; }
                 if (info.VisibilityStates.Count < options.MinVisibilityStates) removed.Add(info);
             }
             if (removed.Count == 0) return;
@@ -391,6 +391,11 @@ namespace CodexBlockLib.Core
                 {
                     count++;
                     if (count > 4000) break;
+                    if (!info.HasVisibilityParameter
+                        && DynamicBlockDetector.IsVisibilityParameterClass(DynamicBlockDetector.ClassNameOf(id)))
+                    {
+                        info.HasVisibilityParameter = true;
+                    }
                     string layer = null;
                     try
                     {

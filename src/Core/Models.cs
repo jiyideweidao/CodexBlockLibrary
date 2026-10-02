@@ -52,6 +52,7 @@ namespace CodexBlockLib.Core
         public BlockKind Kind = BlockKind.Unknown;
 
         public bool IsDynamic;
+        public bool HasVisibilityParameter;   // 块定义里确实带可见性参数（AcDbBlockVisibilityParameter）
         public bool IsXref;
         public bool IsUnresolved;
         public bool HasAttributes;
